@@ -6,6 +6,15 @@
 
 For iterative work without scattered snapshots, prefer [single-file projects](PROJECTS.md). Standalone `.qlpaint` snapshots below remain supported.
 
+## 笔宽与薄涂 / Width and thin paint (1.4.0)
+
+- 所有画笔的 `strokes[].width` 与干性 `operations[].width` 均为 **0.1..30**，是宽度倍率而非像素。`weight` 仍为 **1.5..4.5**；逐点 `controls[].width` 仍为 **0..3**，是叠乘的局部倍率，不是整体宽度字段。
+- 不能把“100 像素宽”直接写成 `width:100`。实际接触还受短边尺寸、笔种、压力、侧锋和收尖影响，按当前工具字段说明选择倍率；大色面用合规宽笔或重叠铺色，非干性模式也可用 `fills`。不要只用密密麻麻的细线填满。
+- 油画薄涂可用较低笔触 `opacity`、较低 `load` 与克制的 `impasto` 近似；这是视觉上的低透明度／薄颜料，不是溶剂、黏度或化学稀释。多次湿叠仍可能累积覆盖与混色，`opacity` 不是整个区域永远不超过的透明度上限。
+- 旧合法笔宽仍走原有渲染路径；新宽笔使用与接触尺度相适应的采样。大画布、多宽笔仍然更昂贵，并不保证恒定耗时。
+
+All brushes accept stroke width **0.1..30**, matching dry-operation width. It is a multiplier, not a pixel diameter. `weight` remains **1.5..4.5**; `controls[].width` remains a separate local **0..3** multiplier. Contact also depends on canvas scale, brush, pressure, tip and taper. Use valid broad marks or overlapping passes; non-dry modes may use fills. Low stroke `opacity`, low `load` and restrained `impasto` approximate thin/diluted paint visually, not solvent physics. Repeated overlap can still accumulate coverage and mix paint. Wider strokes have scale-aware sampling; large canvases and many broad marks still cost more.
+
 ## 逐点控制
 
 每条 stroke 的 `controls` 与 `points` 一一对应，各对象字段均可省略：

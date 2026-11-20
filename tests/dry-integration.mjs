@@ -72,4 +72,24 @@ for(const format of ['png','webp','jpeg']) {
  assert.deepEqual(read(noMaterial),read(boot),'eraser/smudge cannot alter flattened source');
  assert.deepEqual(fs.readFileSync(source),original);
 }
+// Public schema and runtime agree for dry operations and strokes shorthand.
+const opSchema=tool.parameters.properties.operations.items.properties;
+assert.equal(opSchema.width.minimum,.1); assert.equal(opSchema.width.maximum,30);
+assert.match(opSchema.width.description,/NOT pixels/);
+assert.match(opSchema.controls.items.properties.width.description,/Local multiplier/);
+for(const width of [.1,30]) {
+ const op={...a,width,controls:[{width:3},{width:3}]};
+ const operation=await run({...opts,operations:[op],output:`width-operation-${width}.png`});
+ const {tool:_,...stroke}=op;
+ const shorthand=await run({...opts,dry_media:true,brush:'charcoal',strokes:[stroke],output:`width-shorthand-${width}.png`});
+ assert.deepEqual(read(operation),read(shorthand),'dry shorthand preserves max/min width and local controls');
+}
+for(const width of [0,.099,30.001,Infinity,NaN]) {
+ for(const mode of ['operations','strokes']) {
+  const args=mode==='operations'?{operations:[{...a,width}]}:{dry_media:true,brush:'charcoal',strokes:[{points:a.points,width}]};
+  await assert.rejects(()=>run({...opts,...args}),/width must be between 0.1 and 30; width is a multiplier.*not pixels/);
+ }
+}
+await assert.rejects(()=>run({...opts,operations:[{...a,controls:[{width:30},{}]}]}),/controls\[0\].width must be between 0 and 3; controls.width is a local multiplier, not pixels/);
+console.log('dry width: PASS — .1..30 bounds, local controls, schema guidance, shorthand equality and actionable errors');
 console.log('dry integration: PASS',cwd);

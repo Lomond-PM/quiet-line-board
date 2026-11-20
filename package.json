@@ -1,9 +1,9 @@
 {
   "name": "@dsh-local/quiet-line-board",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "repository": { "type": "git", "url": "https://github.com/Lomond-PM/quiet-line-board.git" },
-  "scripts": { "test": "node tests/controls.cjs && node tests/state.cjs && node tests/integration.mjs && node tests/dry.cjs && node tests/dry-integration.mjs && node tests/project-store.cjs && node tests/project-integration.mjs && node tests/project-docs.mjs" },
+  "scripts": { "test": "node tests/controls.cjs && node tests/state.cjs && node tests/integration.mjs && node tests/dry.cjs && node tests/dry-integration.mjs && node tests/project-store.cjs && node tests/project-integration.mjs && node tests/project-docs.mjs && node tests/art-guidance.mjs" },
   "type": "module",
   "engines": { "node": ">=24.0.0" },
   "description": "A model-callable drawing board with wet oils, dry graphite/charcoal, erasing, smudging, single-file projects, checkpoint history and built-in art guidance.",

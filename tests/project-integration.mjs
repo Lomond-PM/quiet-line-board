@@ -8,6 +8,8 @@ const require=createRequire(import.meta.url);
 const {readProject}=require('../lib/project-store.cjs');
 const {loadPaintState}=require('../lib/paint-state.cjs');
 const {loadDryState}=require('../lib/dry-state.cjs');
+const sharp=require('sharp');
+const pixels=async r=>sharp(png(r)).ensureAlpha().raw().toBuffer();
 const cwd=fs.mkdtempSync(path.join(os.tmpdir(),'quiet-line-project-tool-'));
 const tools=new Map();
 const context={tools:{register(t){tools.set(t.name,t);}},workingDirectory:{ensure:async()=>cwd},get(){}};
@@ -113,6 +115,106 @@ const dryImport=await run({project:'dry-import.qlproject',dry_state:dryExport.ta
 assert.deepEqual(png(dryImport),png(dryNext));
 await assert.rejects(()=>run({project:'dry.qlproject',dry_media:false}));
 await assert.rejects(()=>run({project:'dry.qlproject',wetness:50}));
+// Explicit selection creates either initial mode; the old implicit wet brush rule stays intact.
+assert.deepEqual(draw.parameters.properties.project_material.enum,['wet','dry']);
+const explicitWet=await run({project:'explicit-wet.qlproject',project_material:'wet',size:320,strokes:[],output:'explicit-wet.png'});
+assert.equal(explicitWet.brush,'oil'); assert.equal(explicitWet.projectTransition,undefined);
+const explicitDry=await run({project:'explicit-dry.qlproject',project_material:'dry',size:320,output:'explicit-dry.png'});
+assert.equal(explicitDry.projectMode,'dry'); assert.equal(explicitDry.brush,'pencil');
+for(const args of [{project_material:'dry'},{project_material:'wet'},{project:'invalid-mode.qlproject',project_material:'ink'},{project:'invalid-null.qlproject',project_material:null},{project:'new-conflict.qlproject',project_material:'wet',operations:[]},{project:'new-conflict.qlproject',project_material:'dry',dry_media:false},{project:'new-conflict.qlproject',project_material:'wet',brush:'ink'},{project:'new-conflict.qlproject',project_material:'dry',brush:'oil'}]) await assert.rejects(()=>run(args));
+// wet -> dry -> wet uses only the previous PNG as the new substrate, not the wrong-format state.
+// Non-square dimensions and empty transitions must survive exactly, without default study marks.
+const mixed=await run({...wetOpts,size:undefined,width:360,height:320,project:'mixed.qlproject',output:'mixed-wet.png'});
+const oldMixed=await readProject(cwd,'mixed.qlproject',{includeData:true});
+const mixedDry=await run({project:'mixed.qlproject',project_material:'dry',output:'mixed-dry.png'});
+assert.equal(mixedDry.projectMode,'dry'); assert.equal(mixedDry.marks,0);
+assert.match(mixedDry.projectTransition,/wet → dry.*fixed flattened base/);
+assert.equal(mixedDry.baseImage,undefined,'do not expose deleted internal bridge files');
+assert.deepEqual([mixedDry.width,mixedDry.height],[360,320]);
+assert.deepEqual(await pixels(mixedDry),await pixels(mixed));
+const dryStage=await readProject(cwd,'mixed.qlproject',{includeData:true});
+assert.equal(dryStage.selected.mode,'dry');
+const retainedWet=await readProject(cwd,'mixed.qlproject',{step:1,includeData:true});
+assert.deepEqual(retainedWet.selected.state,oldMixed.selected.state,'old physical state is retained byte-for-byte');
+assert.deepEqual(retainedWet.selected.png,oldMixed.selected.png);
+// Erasing the flattened oil does nothing; new charcoal remains editable in the same dry stage.
+const eraseAll={tool:'eraser',points:[[.1,.5],[.9,.5]],width:30,pressure:1};
+const eraseOld=await run({project:'mixed.qlproject',operations:[eraseAll],output:'mixed-erase-old.png'});
+assert.deepEqual(await pixels(eraseOld),await pixels(mixed));
+const mixedMarked=await run({project:'mixed.qlproject',operations:[charcoal],output:'mixed-marked.png'});
+assert.notDeepEqual(await pixels(mixedMarked),await pixels(mixedDry));
+const mixedLift=await run({project:'mixed.qlproject',operations:[lift],output:'mixed-lift.png'});
+assert.notDeepEqual(await pixels(mixedLift),await pixels(mixedMarked));
+// Explicit same-mode selection is a true state resume, equivalent to a direct state continuation.
+const stageExport=await manage({action:'export',project:'mixed.qlproject',target:'mixed-stage.qldry'});
+const mixedSame=await run({project:'mixed.qlproject',project_material:'dry',operations:[charcoal],output:'mixed-same.png'});
+const directSame=await run({dry_state:stageExport.target,operations:[charcoal],output:'mixed-direct-same.png'});
+assert.deepEqual(png(mixedSame),png(directSame)); assert.equal(mixedSame.projectTransition,undefined);
+const mixedWet=await run({project:'mixed.qlproject',project_material:'wet',output:'mixed-wet-again.png'});
+assert.equal(mixedWet.brush,'oil'); assert.equal(mixedWet.subject,'custom'); assert.equal(mixedWet.marks,0);
+assert.match(mixedWet.projectTransition,/dry → wet/);
+assert.deepEqual(await pixels(mixedWet),await pixels(mixedSame));
+assert.deepEqual([mixedWet.width,mixedWet.height],[360,320]);
+const wetStageExport=await manage({action:'export',project:'mixed.qlproject',target:'mixed-stage.qlpaint'});
+const mixedWetSame=await run({project:'mixed.qlproject',project_material:'wet',strokes:[stroke],output:'mixed-wet-same.png'});
+const directWetSame=await run({paint_state:wetStageExport.target,strokes:[stroke],output:'mixed-direct-wet-same.png'});
+assert.deepEqual(png(mixedWetSame),png(directWetSame));
+assert.notDeepEqual(await pixels(mixedWetSame),await pixels(mixedWet));
+// A transition can immediately draw with valid settings for the new mode; it does not inherit old-mode restrictions.
+await manage({action:'branch',project:'mixed.qlproject',step:1,target:'switch-marks.qlproject'});
+const switchDryOpts={operations:[charcoal],brush:'charcoal',grain:35,seed:509,surface:'coldpress'};
+const switchDryMarks=await run({project:'switch-marks.qlproject',project_material:'dry',...switchDryOpts,output:'switch-dry-marks.png'});
+const directDryMarks=await run({base_image:mixed.absolutePath,...switchDryOpts,output:'direct-dry-marks.png'});
+assert.deepEqual(png(switchDryMarks),png(directDryMarks));
+const switchWetOpts={strokes:[stroke],brush:'oilknife',wetness:73,grain:18,seed:617,surface:'linen'};
+const switchWetMarks=await run({project:'switch-marks.qlproject',project_material:'wet',...switchWetOpts,output:'switch-wet-marks.png'});
+const directWetMarks=await run({base_image:switchDryMarks.absolutePath,...switchWetOpts,output:'direct-wet-marks.png'});
+assert.deepEqual(png(switchWetMarks),png(directWetMarks));
+// Material conflicts and new-mode validation fail without advancing the source revision.
+for(const args of [
+ {project_material:'dry',width:361},{project_material:'dry',height:321},{project_material:'dry',size:360},
+ {project_material:'dry',wetness:50},{project_material:'dry',brush:'oil'},{project_material:'dry',subject:'cat'},
+ {project_material:'wet',operations:[]},{project_material:'wet',dry_media:true},{project_material:'wet',brush:'ink'},
+ {project_material:'dry',operations:[{...charcoal,pressure:2}]},
+ {project_material:'dry',base_image:mixed.absolutePath},{project_material:'dry',dry_state:stageExport.target}
+]) {
+ const before=await meta('mixed.qlproject');
+ await assert.rejects(()=>run({project:'mixed.qlproject',...args}));
+ assert.equal((await meta('mixed.qlproject')).revision,before.revision); clean();
+}
+let mixedMeta=await meta('mixed.qlproject');
+assert.deepEqual(mixedMeta.steps.map(s=>s.mode),['wet','dry','dry','dry','dry','dry','wet','wet']);
+assert.match(manager.output.render({},mixedMeta)[0].text,/Step 2 \(dry;/);
+// A historical export must validate using that step's mode, not the current wet head mode.
+const historicalDry=await manage({action:'export',project:'mixed.qlproject',step:2,target:'mixed-historical.qldry'});
+assert.equal(historicalDry.mode,'wet'); assert.equal(historicalDry.exportedMode,'dry');
+assert.equal(loadDryState(cwd,historicalDry.target).metadata.width,360);
+assert.match(manager.output.render({},historicalDry)[0].text,/dry material/);
+await assert.rejects(()=>manage({action:'export',project:'mixed.qlproject',step:2,target:'wrong-historical.qlpaint'}),/\.qldry/);
+const historicalWet=await manage({action:'export',project:'mixed.qlproject',step:1,target:'mixed-historical.qlpaint'});
+assert.deepEqual(fs.readFileSync(historicalWet.target),oldMixed.selected.state);
+const mixedBranch=await manage({action:'branch',project:'mixed.qlproject',step:2,target:'mixed-dry-branch.qlproject'});
+assert.equal(mixedBranch.mode,'dry'); assert.equal(mixedBranch.steps[0].mode,'dry');
+const resumedBranch=await run({project:'mixed-dry-branch.qlproject',output:'mixed-branch-empty.png'});
+assert.deepEqual(await pixels(resumedBranch),await pixels(mixedDry));
+await manage({action:'restore',project:'mixed.qlproject',step:1});
+assert.equal((await meta('mixed.qlproject')).mode,'wet');
+const resumedWet=await run({project:'mixed.qlproject',output:'mixed-restored-wet.png'});
+assert.deepEqual(png(resumedWet),png(mixed));
+await manage({action:'restore',project:'mixed.qlproject',step:2});
+assert.equal((await meta('mixed.qlproject')).mode,'dry');
+const resumedDry=await run({project:'mixed.qlproject',output:'mixed-restored-dry.png'});
+assert.deepEqual(png(resumedDry),png(mixedDry));
+// A competing continuation and explicit switch still share one revision CAS boundary.
+const beforeMixedRace=await meta('mixed.qlproject');
+const mixedRace=await Promise.allSettled([
+ run({project:'mixed.qlproject',project_material:'wet',output:'mixed-race-switch.png'}),
+ run({project:'mixed.qlproject',output:'mixed-race-same.png'})
+]);
+assert.equal(mixedRace.filter(r=>r.status==='fulfilled').length,1);
+assert.match(mixedRace.find(r=>r.status==='rejected').reason.message,/revision|changed|conflict/i);
+assert.equal((await meta('mixed.qlproject')).revision,beforeMixedRace.revision+1);
+clean();
 // Pins survive history limiting; deleting a pin allows subsequent pruning.
 await manage({action:'checkpoint',project:'dry.qlproject',step:1,label:'first pass'});
 await run({project:'dry.qlproject',project_history_limit:1,project_max_mb:64,output:'dry-limited.png'});
@@ -141,6 +243,6 @@ const concurrent=await Promise.allSettled([
 ]);
 assert.equal(concurrent.filter(r=>r.status==='fulfilled').length,1);
 assert.match(concurrent.find(r=>r.status==='rejected').reason.message,/revision|changed|conflict/i);
-assert.equal(fs.readdirSync(cwd).some(n=>/\.qlpaint$|\.qldry$/.test(n)&&!['wet-export.qlpaint','dry-export.qldry','broken.qlpaint'].includes(n)),false,'no persistent bridge snapshots');
+assert.equal(fs.readdirSync(cwd).some(n=>/\.qlpaint$|\.qldry$/.test(n)&&!['wet-export.qlpaint','dry-export.qldry','broken.qlpaint','mixed-stage.qldry','mixed-stage.qlpaint','mixed-historical.qldry','mixed-historical.qlpaint'].includes(n)),false,'no persistent bridge snapshots');
 clean();
 console.log('project integration: PASS',cwd);

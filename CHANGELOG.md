@@ -1,5 +1,23 @@
 # Changelog / 更新记录
 
+## 1.4.0 — 2026-11-20
+
+### 中文
+
+- **一个工程交替使用干湿材料**：`project_material:"wet"|"dry"` 显式切换。跨模式把当前 PNG 固定为下一阶段底图，同模式保留原材料模拟；旧状态仍在保留的历史里，可恢复、分支或按该步材料导出。不是可编辑图层，不做干湿物理混合。
+- **逐步骤材料历史与旧版兼容**：历史标明各步材料，当前模式跟随 head；旧 1.3 工程只读及同模式写不迁移，首次显式切换在 CAS 事务内升级。新建／分支使用新格式，1.3 插件不能读取；建议备份旧工程。
+- **笔宽更实用**：所有画笔整体宽度倍率统一 `0.1..30`；逐点局部 `controls.width` 保持 `0..3`。补足工具 schema 的范围、倍率／像素解释及越界修正建议。新宽笔采用接触尺度相关采样，旧合法输入保留原路径。
+- **更明确的绘画指导**：构图、主体尺度、负形、透视与椭圆结构、漫反射／镜面高光／投影关系；可借鉴起型、明暗底稿、色彩结构到边缘细节的真实过程，但可跳过、合并、回头修正或改用直接画法。不因担心 overworking 过早停笔。
+- **参考与三辅二**：必要且可用时借助外部参考或三维体块的相机／光照／深度等辅助图，实际查看并对齐视点，不以渲染替代用户要求的绘画，遵守权限、费用和上传约束。稀释油彩按低不透明度、低负载薄涂近似，不新增溶剂模拟。
+
+### English
+
+- **Alternate wet/dry phases in one project:** explicit `project_material:"wet"|"dry"` switches fix the current PNG as the next phase's base. Same-mode calls retain their live material. Earlier states remain restorable/branchable/exportable in retained history. No editable layers or wet/dry physical mixing.
+- **Per-step media and compatibility:** history records each step's medium and head mode follows restore. Reading/same-mode editing preserves 1.3 files; first explicit switching upgrades in the CAS transaction. New/branched projects use a format that 1.3 cannot read; back up old projects.
+- **Practical brush widths:** all brushes accept overall width multipliers `0.1..30`; per-point `controls.width` remains `0..3`. Tool bounds, multiplier-vs-pixel explanations and corrective errors now agree. New wide marks use contact-scale sampling; old valid inputs keep their rendering path.
+- **Stronger craft guidance:** composition, subject scale, negative space, perspective/ellipse construction, diffuse/specular light and shadows. Painting stages are adaptable, not compulsory; direct painting and structural revisions remain valid. Purposeful iteration should not stop prematurely from fear of overworking.
+- **References and 3D-to-2D:** optional external references or 3D camera/light/depth aids, actually inspected and aligned, never silently replacing requested painting. Respect permissions, costs and uploads. Low-opacity, low-load thin oils approximate dilution visually, without solvent physics.
+
 ## 1.3.0 — 2026-11-20
 
 ### 中文

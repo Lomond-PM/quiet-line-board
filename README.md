@@ -50,7 +50,13 @@ Quiet Line 给 DSH 里的 AI 一张画布和一套画笔。你说想画什么，
 
 想控制得更细，也能告诉它哪里按重一点、哪里提笔，如何转动油画扁平刷，以及颜料要湿一些还是干一些。一般使用不需要记住这些参数；需要时再看[笔触与湿画指南](CONTROL.md)。
 
-## 新增：一幅画，一个工程
+## 1.4.0：材料可以换，画面结构要立住
+
+同一个工程现在可以先用炭笔起型，再薄涂油彩，之后用干性材料加线。显式切换材料时，上阶段画面固定为底图，旧可编辑状态保留在历史里；同材料续画不固化。**不模拟干湿物理混合，也不是可编辑图层。** 详见[工程指南](PROJECTS.md)。
+
+所有画笔的整体笔宽倍率放宽为 **0.1..30**，逐点局部倍率仍为 **0..3**，不是像素值。内置指导强化构图、透视、漫反射／高光与明暗结构，鼓励灵活借鉴真实作画阶段；必要时可用参考图或三辅二辅助，不强制固定流程。薄涂用低不透明度、低负载颜料作视觉近似。详见[绘画方法](DRAWING.md)与[笔触说明](CONTROL.md)。
+
+## 一幅画，一个工程
 
 1.3.0 新增 **`.qlproject` 单文件工程**。后续只需继续使用同一个工程，材料和过程状态自动保存，不必每一步新建 `.qlpaint` 或 `.qldry`。默认保留最近 **30 步自动历史**，另支持最多 **64 个命名检查点**，可查询、回退、另存分支和导出。
 
@@ -116,7 +122,13 @@ Eight brushes cover ink, fountain pen, pencil, charcoal, brush, marker, oil and 
 
 For more deliberate marks, the tool offers per-point pressure, width and opacity; wet oils also simulate rotated and tilted flat tips, edge hardness and flow. You don't need to learn the parameters to get started. See the [controls guide](CONTROL.md) for legacy strokes and wet oils, including JSON examples and implementation limits.
 
-### New: one painting, one project
+### 1.4.0: change media, strengthen the structure
+
+One project can now move from charcoal construction to thin oils and back to dry accents. Explicit material switches fix the previous image as the next phase's base, while retaining earlier editable states in history. Same-mode calls keep their simulation. **This is not wet/dry physical interaction or editable layers.** See the [project guide](PROJECTS.md).
+
+Overall stroke width now accepts **0.1..30** for all brushes; per-point width stays **0..3**. These are multipliers, not pixels. Built-in guidance emphasizes composition, perspective, diffuse/specular light and value structure, with adaptable painting stages and optional references/3D-to-2D aids. Low-opacity, low-load paint visually approximates thin washes, not solvent chemistry. See [drawing practice](DRAWING.md) and [controls](CONTROL.md).
+
+### One painting, one project
 
 Version 1.3.0 adds **single-file `.qlproject` projects**. Reuse one project path; material state and history save automatically without scattering `.qlpaint` / `.qldry` files. Defaults retain **30 automatic steps** plus up to **64 named checkpoints**, with history listing, restore, branches and exports.
 

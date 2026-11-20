@@ -69,7 +69,7 @@ const STROKE_SCHEMA = {
       description: 'Ordered points of the line. Two points make a straight stroke; more make a hand-drawn curve.'
     },
     color: { type: 'string', description: 'ink, accent, clay, ochre, sage, or a #rrggbb value. Default ink.' },
-    width: { type: 'number', description: 'Stroke width multiplier, 0.1–3 (0.1–30 in dry_media). Default 1.' },
+    width: { type: 'number', minimum: 0.1, maximum: 30, description: 'Stroke width multiplier of base weight, 0.1–30 for every brush (including dry_media). Default 1; NOT pixels. Approximate nominal pixels = weight × (short canvas side / 420)^0.68 × width × brush scale; pressure, taper and tip also affect contact. For large solid areas prefer fills outside dry-media mode.' },
     pressure: { type: 'number', minimum: 0, maximum: 1, description: 'Dry-media shorthand only: contact pressure affecting density, default 0.5. Requires dry_media:true; not the global pressure-variation setting.' },
     grade: { type: 'string', enum: ['H', 'HB', '2B', '4B', '6B', '8B'], description: 'Dry-media shorthand only: material softness, default 2B. Requires dry_media:true.' },
     opacity: { type: 'number', description: '0–1. Default 0.95.' },
@@ -77,7 +77,7 @@ const STROKE_SCHEMA = {
       type: 'array', description: 'One object per points entry (same length). Smoothly interpolated along the stroke; pressure=0 explicitly lifts the brush. Omitted fields inherit stroke defaults.',
       items: { type: 'object', additionalProperties: false, properties: {
         pressure: { type: 'number', minimum: 0, maximum: 1 },
-        width: { type: 'number', minimum: 0, maximum: 3 },
+        width: { type: 'number', minimum: 0, maximum: 3, description: 'Local multiplier of the stroke width, 0–3; default 1, 0 lifts contact. NOT pixels or a replacement for strokes[].width (0.1–30).' },
         opacity: { type: 'number', minimum: 0, maximum: 1 },
         angle: { type: 'number', minimum: -360, maximum: 360, description: 'Canvas-space degrees; shortest-path rotation.' },
         tilt: { type: 'number', minimum: 0, maximum: 1 }
@@ -159,7 +159,14 @@ function fail(message) {
 function numberIn(value, fallback, min, max, label) {
   if (value == null) return fallback;
   const n = Number(value);
-  if (!Number.isFinite(n) || n < min || n > max) fail(`${label} must be between ${min} and ${max}`);
+  if (!Number.isFinite(n) || n < min || n > max) {
+    const widthHint = /^(strokes|operations)\[\d+\](?:\.controls\[\d+\])?\.width$/.test(label)
+      ? label.includes('.controls[')
+        ? '; controls.width is a local multiplier, not pixels. Use stroke/operation width (0.1–30) for the overall size'
+        : '; width is a multiplier of base weight, not pixels. Use 1 for normal contact, up to 30 for broad marks, or use fills for large solid areas outside dry-media mode'
+      : '';
+    fail(`${label} must be between ${min} and ${max}${widthHint}`);
+  }
   return n;
 }
 
@@ -218,7 +225,7 @@ function normalizeStroke(raw, i) {
   return CORE.stroke(points, {
     ...extra,
     color: color(raw.color, `${label}.color`),
-    width: numberIn(raw.width, 1, 0.1, 3, `${label}.width`),
+    width: numberIn(raw.width, 1, 0.1, 30, `${label}.width`),
     opacity: numberIn(raw.opacity, 0.95, 0, 1, `${label}.opacity`),
     closed: raw.closed === true,
     ...(raw.overshoot == null ? {} : { overshoot: numberIn(raw.overshoot, 1, 0, 3, `${label}.overshoot`) })
@@ -331,7 +338,8 @@ function renderValue(value) {
   ];
   if (value.project) {
     lines.push(`Project: ${value.project} — ${value.projectMode} step ${value.projectStep}, revision ${value.projectRevision}. Editable material state and this PNG are auto-saved in the single project file.`);
-    lines.push('Continue with project set to this same file. Use quiet_line_project to list history, restore, checkpoint, branch or export; no loose state snapshots are needed.');
+    lines.push('Continue with project set to this same file. Use quiet_line_project to list history, restore, checkpoint, branch or export; no loose state snapshots are needed. Set project_material explicitly only when changing wet/dry phases; a switch fixes the current image as the next phase base.');
+    if (value.projectTransition) lines.push(value.projectTransition);
     if (value.note) lines.push(value.note);
     return lines.join('\n');
   }
@@ -365,7 +373,7 @@ export function apply(ctx) {
       'switching to generic image-processing scripts merely because an image already exists. Use other editing tools ' +
       'when the user explicitly requests image processing (such as crop/filter/colour adjustment) or this tool cannot perform the change. ' +
       'Prefer project (.qlproject) for continued wet oil or dry-material work: one engineering file auto-saves editable state, PNG history and optional named checkpoints without loose snapshots. Continue with the same project; use quiet_line_project for history, restore, branch and export. Existing image pixels are a flattened dry layer. Legacy snapshots remain supported: save_state to a new .qlpaint file, then resume with paint_state (not base_image). Stroke controls enable per-point pressure/width/opacity/angle/tilt and oil tip/hardness/flow. State snapshots also allow branching from an earlier call; editable layers, masks and arbitrary per-stroke undo are not provided. ' +
-      'For material-aware graphite/charcoal, use dry_media with ordered operations: pencil, charcoal, eraser, kneaded and smudge. Save .qldry with save_dry_state, resume via dry_state; this is independent of wet oil state. ' + ART_GUIDANCE,
+      'For material-aware graphite/charcoal, use dry_media with ordered operations: pencil, charcoal, eraser, kneaded and smudge. Save .qldry with save_dry_state, resume via dry_state; standalone dry/wet snapshots are independent. Projects can alternate media using explicit project_material switches, fixing the previous image as the next phase base while retaining earlier states in history; physical wet/dry mixing is not simulated. ' + ART_GUIDANCE,
     parameters: {
       type: 'object',
       additionalProperties: false,
@@ -493,6 +501,7 @@ export function apply(ctx) {
           projectStep: { type: 'integer' },
           projectRevision: { type: 'integer' },
           projectMode: { type: 'string', enum: ['wet', 'dry'] },
+          projectTransition: { type: 'string' },
           image: IMAGE_SCHEMA,
           note: { type: 'string' }
         },

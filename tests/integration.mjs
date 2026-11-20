@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { apply } from '../index.js';
+import { createHash } from 'node:crypto';
 const require = createRequire(import.meta.url);
 const CORE = require('../lib/core.cjs');
 const RASTER = require('../lib/raster.cjs');
@@ -93,4 +94,46 @@ if(previous){
  }
  console.log('legacy: all 8 brushes byte-identical to baseline');
 }
+// Frozen before widening the public width range: upper old bound, all eight
+// brushes, with and without controls. Guards deterministic PNG bytes, not just geometry.
+const legacyHashes = {
+ ink:['ec0db895b748be49752e1651c0777d2c6a15301ac5951274a605a872d760a8e5','ffa13fbc9e11f0b5a7ac9168567f49890902f23231ee3b5c736e873aa03ce081'],
+ fountain:['74a479d3af469e7eafb205f7292d44fcd5102e5104964e3fd48bd44f852ea3c7','f4bf39e5378dcb969088ce52eefa8dde2ed4c6dd5a6a39a135faa18c5a9de84b'],
+ pencil:['fdd0b40e86a1b6cd4ff5c29772a9b9a4e320f860573d578426ada279dee8af46','86f729b71c6975ce83e76355cc8b6f29b4160546c453c9ac0d66774cfbb4073b'],
+ charcoal:['32826926b2db0ec5743fb3ce1a4a0fd46dab085aaa48e8f25f2210b175240fe4','1cca7e23eabe5c9a505b01bec0b1a84202c6b7218c0e184a9d3d8eaae77ef0ac'],
+ brush:['c97a6c5ea7869b072bd708da2f80b647ab2dbd32b8c8096948180aa9c542b747','3f145816f9bc54ad02dd55a5498e725f97087669c1ee6739b9012edbae76ee11'],
+ marker:['4935edb2cf55a67e9a6006adbc9dcf209a0702f7a117b907ab3b8ab1b055cc1f','af1c1c322d653e3dcda6714eb0ff4e423929c837fecbc2a68e2aa4403ee5b462'],
+ oil:['6bd4d484ab365d58402cb7dab1de37df78445714bd1c71ec16c775dcdf58d982','bdc0d6f8ec109b0183d4d4945fe862bfd61edef2c1afe8bb8f12ad7aa1124217'],
+ oilknife:['2b7f1d383e66ceb5697a620f43e8b91dcab883d3452cfbf5ce5fbea95a27326d','701821f91976d33500faa31c931644d5f38a2f401ad9ad305a693548e83fa712']
+};
+for(const [brush, hashes] of Object.entries(legacyHashes)) for(const controlled of [false,true]) {
+ const style={brush,seed:623,weight:4.5,wobble:0,pressure:0,texture:.46,padding:0};
+ const item={type:'stroke',points:[[.1,.5],[.9,.5]],width:3,...(controlled?{controls:[{width:3},{width:3}],tip:'flat',angle:30}:{})};
+ const png=RASTER.renderPNG(CORE.buildItems([item],style,320),{width:320,height:320,seed:623}).png;
+ assert.equal(createHash('sha256').update(png).digest('hex'),hashes[Number(controlled)],`${brush} controlled=${controlled}: old bytes unchanged`);
+}
+const strokeSchema=tool.parameters.properties.strokes.items.properties;
+assert.equal(strokeSchema.width.minimum,.1); assert.equal(strokeSchema.width.maximum,30);
+assert.match(strokeSchema.width.description,/NOT pixels/);
+assert.equal(strokeSchema.controls.items.properties.width.maximum,3);
+assert.match(strokeSchema.controls.items.properties.width.description,/Local multiplier/);
+for(const width of [.1,3,3.001,30]) {
+ const drawn=await run({...opts,brush:'ink',strokes:[{points:[[.1,.5],[.9,.5]],width}],output:`width-${width}.png`});
+ assert.ok(drawn.bytes>0);
+}
+for(const brush of Object.keys(CORE.BRUSHES)) {
+ const stroke={points:[[.1,.5],[.9,.5]],width:30};
+ const wide=await run({...opts,brush,strokes:[stroke],output:`wide-${brush}.png`});
+ const narrow=await run({...opts,brush,strokes:[{...stroke,width:3}],output:`narrow-${brush}.png`});
+ assert.notDeepEqual(fs.readFileSync(wide.absolutePath),fs.readFileSync(narrow.absolutePath),`${brush}: width30 is not silently clamped`);
+}
+for(const width of [0,.099,30.001,Infinity,NaN]) await assert.rejects(()=>run({...opts,strokes:[{points:a.points,width}]}),/width must be between 0.1 and 30; width is a multiplier.*not pixels/);
+await assert.rejects(()=>run({...opts,strokes:[{points:[[0,0],[1,1]],controls:[{width:30},{}]}]}),/controls\[0\].width must be between 0 and 3; controls.width is a local multiplier, not pixels/);
+// New broad sampling retains split-call state equivalence too.
+const broadA={...a,width:30}, broadB={...b,width:20};
+const broadFirst=await run({...opts,strokes:[broadA],save_state:'broad.qlpaint',output:'broad-first.png'});
+const broadResume=await run({paint_state:broadFirst.paintState,strokes:[broadB],output:'broad-resume.png'});
+const broadSingle=await run({...opts,strokes:[broadA,broadB],output:'broad-single.png'});
+assert.deepEqual(fs.readFileSync(broadResume.absolutePath),fs.readFileSync(broadSingle.absolutePath));
+console.log('width: PASS — .1..30 schema/runtime, controls 0..3, all brushes broaden, 16 frozen PNG hashes, broad split equality');
 console.log('integration: PASS',cwd);

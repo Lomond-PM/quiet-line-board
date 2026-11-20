@@ -22,6 +22,20 @@ The renderer makes marks; the model makes visual decisions. These are working me
 - Choose a focal point. Reserve the strongest contrast, sharpest edges and richest detail rather than distributing them everywhere.
 - Observe an available reference before drawing. For imagined work, decide the essential relationships first. Do not claim to have inspected an image you have not viewed.
 
+### 构图与透视检查 / Composition and perspective checks
+
+**中文**
+
+- 把构图当成持续检查项：画幅与裁切、主体占比、留白、视觉重心、前中后景、主次对比。缩小看大剪影与明暗块，先改主体过小、重心失衡或背景抢戏，再画纹理；避免无意的切边、相切和拥挤边距。
+- 空间场景先明确视点、视平线和透视类型。同方向的平行线应共用消失点，消失点可以在画外；不同朝向的物体可以有不同消失点组，但须服从同一视点。用方盒、圆柱、轴线或临时辅助线校验，再细化。
+- 检查近大远小、遮挡次序、缩短、桌面与地面接触、椭圆开合和轴向。不要用漂亮的纹理掩饰结构错误。正交、平面化和夸张透视都可选择，但应出于表达，而不是无意漂移。
+
+**English**
+
+- Recheck format/crop, subject scale, negative space, balance, depth planes and contrast hierarchy throughout. Read silhouettes and value masses at thumbnail size. Correct weak placement before texture; avoid accidental tangencies and cramped margins.
+- Establish viewpoint, eye level/horizon and projection. Parallel directions share vanishing points, which may be off-canvas. Differently oriented objects may use different vanishing-point sets under the same view. Test with boxes, cylinders, axes or temporary guides.
+- Check relative scale, overlap, foreshortening, ground contact and ellipse orientation/openness. Texture cannot repair construction. Orthographic, flat and deliberately distorted styles are valid intentional choices.
+
 ## 2. 用光组织体积 / Organize volume with light
 
 **中文**
@@ -31,6 +45,7 @@ The renderer makes marks; the model makes visual decisions. These are working me
 3. 让笔触解释平面朝向与转折。球面是逐渐转暗，盒体可有明确明暗交界，不能都只用一圈深轮廓。
 4. 暗部的反光可以比核心暗部亮，但通常不应抢过受光面的整体亮度。
 5. 检查投影的落点与接触暗部，物体才像放在桌面上，而不是浮在背景前。
+6. 区分漫反射受光与镜面高光：亮面由光向与表面朝向组织，高光还取决于视线、粗糙度与材质。不要给每个物体随意点同一颗白点。主光源方向与大小也应和投影方向、软硬相符。
 
 **English**
 
@@ -39,6 +54,7 @@ The renderer makes marks; the model makes visual decisions. These are working me
 3. Let marks explain planes and turning surfaces. A sphere turns gradually; a box can change value abruptly. Neither needs an equally dark outline everywhere.
 4. Reflected light may lift a shadow without breaking the larger light/shadow separation.
 5. Place cast shadows and contact accents convincingly so objects sit on a surface rather than float.
+6. Distinguish diffuse illumination from specular highlights: lit planes depend on light and surface orientation; highlights also depend on view and roughness/material. They are not an arbitrary white dot on every object. Light direction and size should agree with cast-shadow direction and softness.
 
 ## 3. 铅笔与炭笔 / Graphite and charcoal
 
@@ -73,6 +89,24 @@ The renderer makes marks; the model makes visual decisions. These are working me
 Establish large colour and value masses before small colour variations. Follow the form with directional strokes and vary hard, soft and lost edges. Lose some boundaries into adjacent values; clarify the focal area. Contrast thin passages, more solid masses and selective impasto highlights rather than loading every inch equally.
 
 Wet overlap picks up and mixes pigment: use it to connect related colours, but avoid aimless stirring when a clean light is needed. A palette knife is not a universal sharpening filter; its orientation and drag should describe the subject. Continue wet oils from `.qlpaint`, not from the flattened pixels of a PNG.
+
+### 借鉴真实作画，不固定范式 / Borrow practice, not a rigid recipe
+
+**中文**
+
+可参考：构图与透视 → 轻线起型／单色底稿 → 明暗与投影的大关系 → 大色块、冷暖与色彩结构 → 转面、边缘、材质与少量重点细节。油画可以先用炭笔起型，或以低不透明度、低 `load`、较薄的笔触近似稀释油彩，再铺更实的色面与局部厚涂。这是视觉上的薄涂近似，没有溶剂或化学稀释模拟。
+
+流程只是脚手架：可合并、跳过、调整顺序、回头改构图，也可直接画法或使用更适合题材的方法。不是每张图都必须有底稿、必须分六轮，或必须先完成一张素描。不要把遵守工序当作画面已经成立。
+
+同一工程用 `project_material:"dry"` 与 `project_material:"wet"` 显式切换材料；同模式续画保留原模拟状态，跨模式把当前图像固定成下一阶段底图。固定后的旧炭笔不能在新湿画阶段直接擦除；可恢复或分支到历史干画步骤重新调整。重要切换前保存命名检查点。详见[工程指南](PROJECTS.md)。
+
+**English**
+
+One useful scaffold is composition/perspective → light construction or tonal underpainting → broad light/shadow masses → large colour planes and warm/cool structure → form, edges, materials and selective accents. Oils may start from charcoal construction or low-opacity, low-`load`, thin paint approximating a diluted block-in, then fuller colour and selective impasto. This is visual dilution, not solvent chemistry.
+
+Combine, skip, reorder or revisit stages; direct painting or another method may suit the subject better. Neither a separate drawing nor six tool calls is compulsory. Ritual completion is not visual success.
+
+Use `project_material:"dry"` / `project_material:"wet"` to explicitly change a project's active medium. Same-mode continuation keeps its simulation; a switch fixes the current image as the next phase's base. Old charcoal is not directly erasable in the new oil phase; restore or branch to its retained dry step to revise it. Name important checkpoints before switching. See the [project guide](PROJECTS.md).
 
 ## 5. 看结果，再有目的地继续 / Inspect, decide, continue
 
@@ -119,6 +153,20 @@ For each pass:
 **中文：** 先定冷暖关系和三块主色，不急着画树叶。第二轮调整天空、地面和主体的明度比例，第三轮再放少量厚涂亮点。每轮都比较整体；不因担心画过头而放弃仍明显需要的修正，也不因尚有调用预算而硬添细节。
 
 **English:** Choose a warm/cool relationship and three main colour masses before drawing leaves. On pass two, adjust the sky/ground/subject value balance; on pass three, add selective loaded highlights. Compare the whole at every stage. Do not abandon a clear improvement from fear of overworking, or invent extra details just because calls remain.
+
+## 7. 外部参考与三辅二 / References and 3D-to-2D aids
+
+**中文**
+
+必要且环境允许时，可以借助照片、参考图、构图缩略图或三辅二流程：以简单三维体块搭景，明确相机、视平线、焦距／投影、主体尺度及灯光，渲染剪影、灰模明暗、深度或法线辅助图，再据此绘画。对建筑、室内、复杂姿势或强透视尤其有用，但不要求每张图都建模。
+
+必须实际查看辅助图，核对它与最终构图的视点、比例、裁切和光照是否一致。法线／深度图用于理解结构，不直接当作最终颜色；参考关系而不是盲目描摹，也不偷偷用三维渲染或外部生成图替代用户要求的手绘过程。是否采用底图由任务决定，导入为底图后只是固定像素。遵守参考素材的权限、隐私、署名及用户约束；需要付费服务、上传素材或安装软件时取得相应授权。辅助工具不可用时，用现有画具中的简单形体与辅助线即可，不虚称已建模或已看图。
+
+**English**
+
+When useful and available, use photos, references, thumbnails or a 3D-to-2D workflow: block simple volumes, choose camera/horizon/focal length or projection, scale and lighting, then render silhouette, clay-value, depth or normal references. This can clarify architecture, interiors, complex poses and strong perspective; modeling is optional, not required for every picture.
+
+Actually inspect aids and match viewpoint, proportions, crop and light. Depth/normals explain structure, not final colour. Interpret rather than blindly trace, and never silently substitute a render or externally generated image for requested painting. A reference may stay beside the canvas; importing it as a base fixes its pixels. Respect permissions, privacy, attribution and user constraints, obtaining authorization where required for paid services, uploads or installation. If aids are unavailable, use simple construction marks instead; do not claim unseen references or nonexistent modeling.
 
 ## 边界 / Limits
 

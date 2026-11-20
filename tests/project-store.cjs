@@ -19,6 +19,24 @@ function commit(file, opts = {}) { return commitProject(cwd, file, { mode: 'wet'
 function mutate(file, opts) { const current = readProject(cwd, file); return manageProject(cwd, file, { expectedRevision: current.revision, ...opts }); }
 function sql(file, statement) { const db = new DatabaseSync(path.resolve(cwd, file)); try { db.exec(statement); } finally { db.close(); } }
 function badCopy(name, statement) { fs.copyFileSync(path.join(cwd, 'wet.qlproject'), path.join(cwd, name)); sql(name, statement); }
+// Construct the exact 1.3/V1 on-disk format, independent of current writer.
+function legacy(file, mode = 'wet', savedState = state, opts = {}) {
+  const db = new DatabaseSync(path.resolve(cwd, file));
+  try {
+    db.exec(`PRAGMA journal_mode=DELETE; PRAGMA auto_vacuum=FULL; PRAGMA application_id=1363955794; PRAGMA user_version=1;
+      CREATE TABLE project (singleton INTEGER PRIMARY KEY CHECK(singleton=1), mode TEXT NOT NULL, head INTEGER NOT NULL, revision INTEGER NOT NULL, historyLimit INTEGER NOT NULL, maxBytes INTEGER NOT NULL, nextId INTEGER NOT NULL);
+      CREATE TABLE steps (id INTEGER PRIMARY KEY, parentId INTEGER, createdAt TEXT NOT NULL, label TEXT, bytes INTEGER NOT NULL, pinned INTEGER NOT NULL, state BLOB NOT NULL, png BLOB NOT NULL, info TEXT NOT NULL);`);
+    const label = opts.label || null, json = JSON.stringify(info);
+    db.prepare('INSERT INTO project VALUES (1,?,1,1,30,?,2)').run(mode, opts.maxBytes || 2 * 1024 * MiB);
+    db.prepare('INSERT INTO steps VALUES (1,NULL,?,?,?,?,?,?,?)').run(new Date().toISOString(), label,
+      savedState.length + png.length + Buffer.byteLength(json) + (label ? Buffer.byteLength(label) : 0) + 128,
+      label ? 1 : 0, savedState, png, json);
+  } finally { db.close(); }
+}
+function version(file) {
+  const db = new DatabaseSync(path.resolve(cwd, file), { readOnly: true });
+  try { return db.prepare('PRAGMA user_version').get().user_version; } finally { db.close(); }
+}
 function noSidecars() {
   assert.deepEqual(fs.readdirSync(cwd).filter(n => /-(?:journal|wal|shm)$/.test(n) || n.startsWith('.qlproject-')), []);
 }
@@ -38,6 +56,83 @@ try {
       const db = new DatabaseSync(m.path, { readOnly: true });
       try { assert.equal(db.prepare('PRAGMA auto_vacuum').get().auto_vacuum, 1); assert.equal(db.prepare('PRAGMA journal_mode').get().journal_mode, 'delete'); } finally { db.close(); }
     }
+    noSidecars();
+  });
+  test('wet-dry-wet keeps per-step modes, exact payloads and explicit switch authority', () => {
+    let m = commit('mixed.qlproject');
+    assert.equal(version('mixed.qlproject'), 2);
+    const before = fs.readFileSync(m.path);
+    for (const allowModeSwitch of [undefined, false, 1, 'true', {}]) {
+      assert.throws(() => commit('mixed.qlproject', { expectedRevision: 1, mode: 'dry', allowModeSwitch }), /allowModeSwitch/);
+      assert.deepEqual(fs.readFileSync(m.path), before);
+    }
+    m = commit('mixed.qlproject', { expectedRevision: m.revision, mode: 'dry', state: Buffer.from('dry'), allowModeSwitch: true });
+    assert.equal(m.mode, 'dry');
+    m = commit('mixed.qlproject', { expectedRevision: m.revision, mode: 'wet', state: Buffer.from('wet again'), allowModeSwitch: true });
+    assert.equal(m.mode, 'wet'); assert.deepEqual(m.steps.map(s => s.mode), ['wet', 'dry', 'wet']);
+    for (const [index, bytes] of [state, Buffer.from('dry'), Buffer.from('wet again')].entries()) {
+      const result = readProject(cwd, 'mixed.qlproject', { step: index + 1, includeData: true });
+      assert.equal(result.mode, 'wet', 'metadata mode belongs to head, not selected');
+      assert.equal(result.selected.mode, m.steps[index].mode);
+      assert.deepEqual(result.selected.state, bytes); assert.deepEqual(result.selected.png, png);
+    }
+    const snapshot = fs.readFileSync(m.path);
+    assert.throws(() => commit('mixed.qlproject', { expectedRevision: 1, mode: 'dry', allowModeSwitch: true }), { code: 'ERR_PROJECT_REVISION' });
+    assert.deepEqual(fs.readFileSync(m.path), snapshot);
+    m = mutate('mixed.qlproject', { action: 'restore', step: 2 });
+    assert.equal(m.mode, 'dry'); assert.equal(m.head, 2); assert.equal(m.revision, 4);
+    assert.deepEqual(m.steps.map(s => s.mode), ['wet', 'dry', 'wet']);
+    assert.throws(() => commit('mixed.qlproject', { expectedRevision: m.revision }), /allowModeSwitch/);
+    m = commit('mixed.qlproject', { expectedRevision: m.revision, mode: 'dry' });
+    assert.equal(m.steps.at(-1).parentId, 2); assert.equal(m.steps.at(-1).mode, 'dry');
+    const source = fs.readFileSync(m.path);
+    const branch = manageProject(cwd, 'mixed.qlproject', { action: 'branch', step: 1, target: 'mixed-branch.qlproject', expectedRevision: m.revision });
+    assert.equal(branch.mode, 'wet'); assert.equal(branch.steps[0].mode, 'wet');
+    assert.deepEqual(fs.readFileSync(m.path), source);
+    m = mutate('mixed.qlproject', { action: 'restore', step: 3 });
+    assert.equal(m.mode, 'wet');
+    m = mutate('mixed.qlproject', { action: 'prune', historyLimit: 1 });
+    assert.deepEqual(m.steps.map(s => s.id), [3]); assert.equal(m.mode, 'wet');
+    noSidecars();
+  });
+  test('1.3 legacy reads/verify leave bytes unchanged; same-mode writes stay V1', () => {
+    for (const mode of ['wet', 'dry']) {
+      const file = `legacy-${mode}.qlproject`; legacy(file, mode);
+      const original = fs.readFileSync(path.join(cwd, file));
+      let m = readProject(cwd, file, { includeData: true });
+      assert.equal(m.mode, mode); assert.equal(m.steps[0].mode, mode); assert.equal(m.selected.mode, mode);
+      assert.deepEqual(m.selected.state, state);
+      manageProject(cwd, file, { action: 'recover' });
+      assert.deepEqual(fs.readFileSync(m.path), original);
+      assert.throws(() => commit(file, { expectedRevision: 1, mode: mode === 'wet' ? 'dry' : 'wet' }), /allowModeSwitch/);
+      assert.deepEqual(fs.readFileSync(m.path), original);
+      m = commit(file, { expectedRevision: 1, mode, allowModeSwitch: true });
+      assert.equal(version(file), 1); assert.deepEqual(m.steps.map(s => s.mode), [mode, mode]);
+      m = mutate(file, { action: 'checkpoint', step: 1, label: 'legacy pin' });
+      m = mutate(file, { action: 'restore', step: 1 });
+      assert.equal(version(file), 1);
+      const beforeBranch = fs.readFileSync(m.path);
+      const branch = manageProject(cwd, file, { action: 'branch', step: 2, target: `legacy-${mode}-branch.qlproject`, expectedRevision: m.revision });
+      assert.equal(branch.mode, mode); assert.equal(branch.steps[0].mode, mode);
+      assert.deepEqual(fs.readFileSync(m.path), beforeBranch);
+      const other = mode === 'wet' ? 'dry' : 'wet';
+      assert.throws(() => commit(file, { expectedRevision: 1, mode: other, allowModeSwitch: true }), { code: 'ERR_PROJECT_REVISION' });
+      assert.equal(version(file), 1); assert.deepEqual(fs.readFileSync(m.path), beforeBranch);
+      m = commit(file, { expectedRevision: m.revision, mode: other, allowModeSwitch: true });
+      assert.equal(version(file), 2); assert.equal(m.mode, other);
+      assert.deepEqual(m.steps.map(s => s.mode), [mode, mode, other]);
+      assert.equal(readProject(cwd, file, { step: 1, includeData: true }).selected.mode, mode);
+      m = mutate(file, { action: 'restore', step: 1 }); assert.equal(m.mode, mode);
+    }
+    noSidecars();
+  });
+  test('failed first switch atomically rolls back V1 migration, head and capacity', () => {
+    const file = 'legacy-rollback.qlproject', large = Buffer.alloc(33 * MiB, 11);
+    legacy(file, 'dry', large, { label: 'protected', maxBytes: 64 * MiB });
+    const before = fs.readFileSync(path.join(cwd, file));
+    assert.throws(() => commit(file, { expectedRevision: 1, mode: 'wet', state: large, allowModeSwitch: true }), { code: 'ERR_PROJECT_CAPACITY' });
+    assert.equal(version(file), 1); assert.deepEqual(fs.readFileSync(path.join(cwd, file)), before);
+    assert.equal(readProject(cwd, file).mode, 'dry');
     noSidecars();
   });
   test('creation exclusive; missing path retains ENOENT', () => {
@@ -162,6 +257,10 @@ try {
       ['trigger.qlproject', 'CREATE TRIGGER malicious AFTER UPDATE ON project BEGIN DELETE FROM steps; END'],
       ['bad-json.qlproject', "UPDATE steps SET info='invalid'"],
       ['bad-meta.qlproject', "UPDATE project SET mode=zeroblob(1000000)"],
+      ['bad-step-mode.qlproject', "UPDATE steps SET mode='bad'"],
+      ['bad-step-mode-type.qlproject', "UPDATE steps SET mode=zeroblob(1000000)"],
+      ['bad-head-mode.qlproject', "UPDATE project SET mode='dry'"],
+      ['bad-v1-schema.qlproject', 'PRAGMA user_version=1'],
       ['bad-length.qlproject', "UPDATE steps SET state=zeroblob(234881025)"],
       ['bad-png-length.qlproject', "UPDATE steps SET png=zeroblob(33554433)"],
       ['bad-info-length.qlproject', "UPDATE steps SET info=printf('%20000s','x')"],
@@ -222,6 +321,36 @@ try {
     assert.deepEqual(fs.readFileSync(m.path), before, 'SQLite must restore exact pretransaction DB');
     assert.deepEqual(manageProject(cwd, 'recover.qlproject', { action: 'recover' }), m, 'clean recovery is verify-only');
     assert.throws(() => manageProject(cwd, 'recover.qlproject', { action: 'recover', expectedRevision: 999 }), { code: 'ERR_PROJECT_REVISION' });
+    noSidecars();
+  });
+  test('crashed V1 migration and mixed-mode writes recover exact prior schema/modes', () => {
+    for (const isLegacy of [true, false]) {
+      const file = isLegacy ? 'recover-migration.qlproject' : 'recover-mixed.qlproject';
+      const savedState = Buffer.alloc(2 * MiB, 92);
+      let m;
+      if (isLegacy) { legacy(file, 'dry', savedState); m = readProject(cwd, file); }
+      else {
+        m = commit(file, { state: savedState });
+        m = commit(file, { expectedRevision: 1, mode: 'dry', state: savedState, allowModeSwitch: true });
+      }
+      const before = fs.readFileSync(m.path);
+      const child = spawnSync(process.execPath, ['-e', `
+        const {DatabaseSync}=require('node:sqlite');
+        const db=new DatabaseSync(${JSON.stringify(m.path)});
+        db.exec("PRAGMA cache_size=8; PRAGMA cache_spill=ON; PRAGMA synchronous=FULL; BEGIN IMMEDIATE;");
+        ${isLegacy ? `db.exec("ALTER TABLE steps ADD COLUMN mode TEXT NOT NULL DEFAULT 'dry'; PRAGMA user_version=2;");` : ''}
+        db.exec("UPDATE project SET mode='wet',revision=revision+1; UPDATE steps SET mode='wet',state=zeroblob(length(state));");
+        process.kill(process.pid,'SIGKILL');
+      `], { stdio: 'ignore', timeout: 20000 });
+      assert.ifError(child.error); assert(child.signal || child.status !== 0);
+      assert(fs.statSync(m.path + '-journal').size > 512);
+      assert.throws(() => readProject(cwd, file), { code: 'ERR_PROJECT_BUSY' });
+      assert.deepEqual(manageProject(cwd, file, { action: 'recover' }), m);
+      assert.deepEqual(fs.readFileSync(m.path), before);
+      assert.equal(version(file), isLegacy ? 1 : 2);
+      const selected = readProject(cwd, file, { includeData: true }).selected;
+      assert.equal(selected.mode, 'dry'); assert.deepEqual(selected.state, savedState);
+    }
     noSidecars();
   });
   test('explicit recovery rejects outside files and unsafe journal links without deleting evidence', () => {

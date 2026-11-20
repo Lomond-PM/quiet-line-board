@@ -116,4 +116,22 @@ const single = CORE.buildItems(items, options, 180).primitives;
 const first = CORE.buildItems([items[0]], options, 180).primitives;
 const second = CORE.buildItems([items[1]], { ...options, itemOffset: 1 }, 180).primitives;
 assert.deepEqual([...first, ...second], single);
-console.log('controls: object contract, arc-length interpolation, angle wrap, spatial pressure/width/opacity, nib rotation/tilt, hardness/flow, caps, and itemOffset passed');
+// Newly accepted widths must reach geometry (not silently clamp to 3),
+// and only that new range may use cheaper contact-relative oil sampling.
+assert.equal(primitive({ width: 3 }).broadStroke, undefined);
+assert.equal(primitive({ width: 30 }).broadStroke, true);
+assert.ok(Math.max(...primitive({ width: 30 }).widthsL) > Math.max(...primitive({ width: 3 }).widthsL) * 9);
+for (const brush of ['oil', 'oilknife']) {
+  const draw = width => {
+    const built = CORE.buildItems([{ ...item, width, cap: 'flat', controls: [{ width: 3 }, { width: 3 }] }],
+      { ...options, brush, weight: 4.5 }, 180);
+    const state = OIL.createOilState(180, 180, 1, { seed: 31 });
+    const result = OIL.paintOilStroke(new Uint8Array(180 * 180 * 4), 180, 180, 1, built.primitives[0], { seed: 31, knife: brush === 'oilknife' }, state);
+    return { state, result };
+  };
+  const narrow = draw(3), wide = draw(30);
+  assert.ok(bounds(wide.state).h > bounds(narrow.state).h * 3, `${brush}: wide contact paints a larger area`);
+  assert.ok(wide.result.segments < narrow.result.segments / 3, `${brush}: broad contact bounds redundant stamping`);
+  assert.ok(wide.result.deposits > 0);
+}
+console.log('controls: object contract, interpolation, spatial controls, caps, itemOffset, and broad-width geometry/sampling passed');

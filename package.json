@@ -1,0 +1,43 @@
+{
+  "name": "@dsh-local/quiet-line-board",
+  "version": "1.1.0",
+  "private": true,
+  "repository": { "type": "git", "url": "https://github.com/Lomond-PM/quiet-line-board.git" },
+  "scripts": { "test": "node tests/controls.cjs && node tests/state.cjs && node tests/integration.mjs" },
+  "type": "module",
+  "description": "A model-callable hand-drawn board with eight brushes, wet oil simulation and safe continuation painting on existing PNG, JPEG or WebP images.",
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "lib/core.cjs",
+    "lib/oil.cjs",
+    "lib/raster.cjs",
+    "lib/base-image.cjs",
+    "lib/paint-state.cjs",
+    "tests/*.cjs",
+    "tests/*.mjs",
+    "CONTROL.md",
+    "docs/controls.png",
+    "examples/*.cjs",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "RECOVERY.md",
+    "REFINEMENT.md",
+    "VOLUME.md",
+    "CONTINUATION.md"
+  ],
+  "dependencies": {
+    "sharp": "0.35.5"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

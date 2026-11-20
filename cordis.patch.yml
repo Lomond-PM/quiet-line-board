@@ -1,0 +1,3 @@
+- insert:
+    - id: '@dsh-local/quiet-line-board:draw'
+      name: '@dsh-local/quiet-line-board'

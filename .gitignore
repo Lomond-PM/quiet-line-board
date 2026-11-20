@@ -1,0 +1,6 @@
+node_modules/
+*.tgz
+quiet-line-out/
+*.qlpaint
+.DS_Store
+Thumbs.db

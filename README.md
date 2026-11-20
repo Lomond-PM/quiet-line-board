@@ -1,232 +1,140 @@
-# Quiet Line board
+# Quiet Line
 
-A DSH Host plugin that gives the agent a small hand-drawn illustration board.
+### 让你的 DSH 可以画画。
+### Give your DSH a paintbrush.
 
-It registers one tool, **`quiet_line_draw`**. A call draws with a chosen brush on a chosen material, using natural ink weight, wobble, tapered lifts, translucent washes, hatching and paper grain; it then writes a PNG under the session's `quiet-line-out/` folder and attaches the image to the tool result.
+![Mimo 2.6 Flash 使用 Quiet Line 绘制的湖畔暮色 / A lakeside sunset drawn by Mimo 2.6 Flash with Quiet Line](docs/cover.png)
 
-![Brush control study](docs/controls.png)
+*封面由 **Mimo 2.6 Flash** 使用本插件绘制，由用户提供。*
 
-上至下 / Top to bottom: pressure + rotating flat tip; fixed-angle flat tips; hardness 0→1; flow 0.25→1. Reproduce with `node examples/control-study.cjs`.
+*Cover artwork drawn by **Mimo 2.6 Flash** using this plugin, shared by the user.*
 
-## 中文说明 · 1.1.0
+[中文](#不只是回答也能画给你看) · [English](#let-your-ai-draw-something-for-you) · [下载安装 / Download](https://github.com/Lomond-PM/quiet-line-board/releases/latest) · [进阶用法 / Brush controls](CONTROL.md)
 
-Quiet Line 是可供 DSH Agent 调用的程序手绘引擎，注册 `quiet_line_draw` 工具，支持八种画笔、六种纸布材质、自定义线条、色块与点，以及油画颜料拾取、混色、纸齿和厚涂。
+---
 
-本版新增：
-- 逐点 `controls`：压力、宽度、透明度、旋转角度与倾角。
-- 油画旋转扁平刷、可独立调整的软硬边 `hardness` 与流量 `flow`、端头形状。
-- `save_state` / `paint_state`：跨调用保留湿料与厚度，保存节点可用于回退或分支。
-- 保留旧参数与旧画法；不提供完整图层、蒙版或任意单笔撤销。
+## 不只是回答，也能画给你看
 
-在 DSH 插件管理器选择“添加插件”，安装本仓库目录，或安装发布的 tgz 包。开发测试需要 Node.js 24+ 和依赖 `sharp`：先运行 `npm install`，再运行 `node tests/controls.cjs`、`node tests/state.cjs`、`node tests/integration.mjs`。绘画示例与完整参数说明见 [CONTROL.md](CONTROL.md)。
+有时候，一张画比一段描述更合适。
 
-## English · 1.1.0
+Quiet Line 给 DSH 里的 AI 一张画布和一套画笔。你说想画什么，它来安排构图、选择颜色，一笔一笔画下来，再把完成的图片交给你。
 
-New precision controls provide per-point pressure, width, opacity, angle and tilt; a rotatable flat oil brush; independent hardness and flow; and configurable caps. `save_state` writes a new wet-paint snapshot, and `paint_state` restores pigment, coverage, height and drying state across calls. Keep snapshots for call-level rollback or branches. This is not an editable-layer, mask or arbitrary per-stroke undo system.
+可以是一片傍晚的湖，一只系着围巾的小猫，也可以只是桌上那杯还冒着热气的茶。不需要你先写坐标，也不用另外接入生图服务。
 
-Install the repository directory or release tgz via DSH **Plugins → Add plugin**. For development, use Node.js 24+, run `npm install`, then `node tests/controls.cjs`, `node tests/state.cjs`, and `node tests/integration.mjs`. See [CONTROL.md](CONTROL.md) for parameters, continuation examples and limitations. No-new-field rendering is regression-tested against 1.0.19 across all eight brushes. The engine does not call an image-generation API or use the network when drawing.
+**它不是把提示词转交给另一个生图模型。** AI 在这里负责构思和调用画笔，插件负责把线条、色块和颜料变成真正的图片。因此，换一个模型、换一种画法，也可能得到很不一样的作品。
 
-## 1.0.19 — continue painting over an existing image
+## 装好之后，试着这样说
 
-Pass `base_image` (a local PNG, JPEG or static WebP path) and draw only the new
-marks. Dimensions default to the oriented original, reduced proportionally only
-above 1800px. Old pixels do not receive a new paper/grain layer. PNG alpha is
-preserved. Continuations always save a NEW file: an occupied explicit output is
-rejected, and default names gain numeric suffixes. No built-in study is added
-implicitly when a base image is supplied. See `CONTINUATION.md` for examples,
-limits and iteration guidance. Fresh-canvas output remains byte-identical to 1.0.18.
+> 帮我画一幅日落时的湖景。天空是深蓝和灰紫色，远处留一条暖黄色的光，右边有一棵树。用油画笔，笔触可以松一点。
 
-For drawing iterations, normally continue using this tool and show the painted
-result rather than switching to generic image-processing scripts merely because
-a finished image exists. Explicit crop/filter/colour-adjustment requests or a
-change this tool cannot perform can use other tools. Existing images are dry,
-flattened pixels, not recovered wet pigment, height maps or editable layers.
+> 画一只系着红围巾的小猫，用铅笔画在暖色纸上，不用太工整。
 
-## 1.0.18 — coherent paint-volume lighting
+> 用 Quiet Line 画一杯热茶，放在窗边，像随手画下来的生活小景。
 
-Resolves the intact height field before clearing it, fixing a scan-order defect
-that zeroed the left/up neighbours during shading. Smooths height for lighting
-only and uses bounded diffuse light, a restrained broad reflection and shallow
-groove occlusion. Impasto now gives coherent lit and shaded ridge shoulders.
-The actual film height, coverage, pigment mixing and hair geometry are unchanged.
-Fine strokes retain their footprint, but their lighting is intentionally changed;
-this release does not claim byte-identical fine/knife PNGs. No external drop
-shadow or added outline. See `VOLUME.md` for invariants and limitations.
-The accepted 1.0.17 package and its snapshot remain untouched for rollback.
+画完后，也可以接着聊：
 
-## 1.0.17 — conservative bristle width refinement (baseline history)
+> 保留现在这张画，在湖面上添几道晚霞的倒影，别动天空。
 
-Builds on the verified 1.0.16 recovery. Slightly differentiates interior hair
-widths on broad oil marks, keeping their expected mean width unchanged, and
-softens along-hair width oscillation. The effect fades toward the outer hairs
-and is disabled for marks up to 8 canvas pixels wide and for the palette knife.
-No random calls, hair start/end indices, pigment shade or mixing formulas change.
-The fine-mark and knife regression PNGs remain byte-identical to 1.0.16.
-See `REFINEMENT.md`. The unchanged 1.0.16 package remains the rollback baseline.
+它提供了继续在原图上添画的能力；如果希望下一次还能拾取和混合未干的油彩，可以让 AI **保存湿画状态**，下次从这个节点继续。就像把画留在画架上，而不是只拍一张照片。
 
-## 1.0.16 — restored 1.0.9 rendering (baseline history)
+> 小提示：作品效果与所用模型、构图安排和笔触规划有关。它是一套可以自由使用的画具，不是保证每次都画出相同效果的滤镜。
 
-Restored from recorded historical edits, not guessed image parameters. Five saved
-1.0.9 outputs (short-stroke board, cup, cat, long stroke, crossing close-up) have
-identical PNG SHA-256 hashes when rendered with the recovered implementation.
-The source retains some disabled experimental branches from the reconstruction;
-this is verified rendering recovery, not a claim of original source byte identity.
-Version 1.0.15 and its snapshot are retained separately for rollback.
-See `RECOVERY.md` for the exact changes and verification evidence.
+## 几支画笔，几种不同的心情
 
-## Brushes
+- **钢笔与墨线**：画轮廓、速写，或简洁的小插画。
+- **铅笔与炭笔**：轻一点、粗糙一点，留下纸上的颗粒。
+- **毛刷与马克笔**：铺色、叠色，保留手绘的松动感。
+- **油画笔与画刀**：让颜料堆起来，在交叠处拾色、混色，留下刷痕与厚度。
 
-| brush | character |
-| --- | --- |
-| `ink` | solid, confident ink pen |
-| `fountain` | fine, crisp, high-contrast fountain pen |
-| `pencil` | lighter graphite with two granular passes |
-| `charcoal` | broad, dry, smudged multi-pass charcoal |
-| `brush` | dense brush body with visible bristle streaks |
-| `marker` | wide, flat-ended, translucent marker |
-| `oil` | loaded, opaque oil brush with tinted impasto ridges |
-| `oilknife` | flat palette-knife stroke with a hard edge and bright ridge |
+可以换上暖白纸、冷压纸、牛皮纸、亚麻布、新闻纸或深色画纸。同一个题材，换一套画具，感觉也会不同。
 
-## Oil simulation
+想控制得更细，也能告诉它哪里按重一点、哪里提笔，如何转动扁平刷，以及颜料要湿一些还是干一些。一般使用不需要记住这些参数；需要时再看[笔触与湿画指南](CONTROL.md)。
 
-`oil` and `oilknife` do not use the alpha-blended ribbon path. They paint into a
-per-pixel paint film (`lib/oil.cjs`) that stores pigment colour, film coverage,
-paint thickness and the stroke that laid it down.
+## 安装到 DSH
 
-- **Bristle contact, not a filled band.** A stroke is a stand of hairs walking
-  the smoothed centreline. Each hair lays its own line, and the mark is the union
-  of what those hairs actually touched — with the hair's own width, not the
-  brush's.
-- **Value between the lines.** The subtle differences in a real brush mark live
-  between the individual hair lines, not inside one line: every hair carries its
-  own value, and the paint itself is even within a line.
-- **No even-width line.** A hair loads and unloads along its length, so its line
-  widens and narrows as it goes; the stroke's outline therefore never breathes in
-  and out as one shape.
-- **Square landing.** A flat brush lands square and fully loaded: the mark starts
-  at full width. Each hair falls short of the ends by its own distance (pixels,
-  not percent), so the mark ends rounded and frayed instead of cut square.
-- **Paint load and the breaking edge.** A loaded brush carries paint past the end
-  of the gesture: the body stays solid and only the last stretch frays. A low
-  `load` runs dry part way through and starts to skip over the canvas. The outer
-  hairs carry less paint and give out first.
-- **Coverage, not transparency.** Coverage saturates to an opaque film and later
-  pigment changes the *colour* of that film. Two crossing strokes read as paint
-  over paint, never as two translucent bands stacked up.
-- **Transport at the rim only.** A hair samples paint that was already on the
-  board (never its own fresh trail, which would feed colour back into itself),
-  picks some of it up smoothly and carries it a distance before it fades back to
-  the loaded pigment. On a loaded, non-wet crossing the new stroke covers the old
-  one and only its rim drags the colour underneath; `wetness` widens that mixing.
-- **Canvas tooth.** Adhesion is gated by a per-surface tooth map (paper grain,
-  cold-press plateaus, linen weave, kraft fibre, newsprint screen), so the
-  material affects where paint sticks instead of sitting behind it as a texture.
-- **Resolving.** `flushOil()` composites the film into the shared premultiplied
-  ink buffer: thickness becomes relief light and groove shadow, ridge tops catch
-  a broken glint, and the film's edge leaves a loaded bead. The film is resolved
-  wherever a wash or charge interrupts the drawing order, so oil keeps its place
-  in the layering.
+1. 到 [Releases](https://github.com/Lomond-PM/quiet-line-board/releases/latest) 下载 `.tgz` 安装包。
+2. 在 DSH 的插件管理器中添加这个安装包，并启用 Quiet Line。
+3. 回到对话，告诉 AI：“用 Quiet Line 帮我画一幅……”
 
-Only the pixels a stroke touches are read or written, and the wet state is a
-per-pixel field rather than a growing stroke list. The cost of adding a stroke is
-therefore independent of how many strokes are already finished.
-`examples/oil-benchmark.cjs` applies the same brush 240 times on a 1200 × 800
-linen board; median per-stroke time is flat at about 4 ms from the early strokes
-to after 200 previous strokes (ratio ≈ 0.93), and a full 1200 × 800 study renders
-in roughly 0.5–0.8 s.
+安装后，AI 会获得 `quiet_line_draw` 绘画工具。升级后若仍看不到新参数，请重启 DSH，让缓存的插件代码重新加载。
 
-## Canvas materials
+图片默认保存在当前工作目录的 `quiet-line-out/` 中；能否直接在对话中显示预览，取决于当前 DSH 的图片附件服务与大小限制。绘画引擎本身不调用外部生图 API；与你使用的 AI 模型对话仍可能产生模型费用。
 
-| surface | material |
-| --- | --- |
-| `warm` | warm white drawing paper |
-| `coldpress` | cool, toothy cold-press watercolor paper |
-| `kraft` | tan kraft stock with strong fibres |
-| `linen` | woven linen canvas |
-| `newsprint` | cool newsprint with a fine dot screen |
-| `charcoal` | dark charcoal paper with chalk-toned ink |
+## 也说清楚它的边界
 
-## Canvas size
+Quiet Line 是给 AI 使用的轻量画具，不是 Photoshop，也不是完整的绘画编辑器。
 
-`width` and `height` are independent, 320–1800 px each. Use `size` as a square shorthand; `width` / `height` override it per axis. The shared core and the rasterizer both work in arbitrary aspect ratios, so a landscape or portrait drawing is a first-class board, not a cropped square.
+- 可以在已有图片上继续添画，但普通图片只有已经落定的像素，不能自动还原成湿颜料或可编辑图层。
+- 油画可以保存湿画快照，方便从某一次调用的节点继续、回退或分支；目前没有独立图层、蒙版或任意单笔撤销。
+- 笔触、纸齿和厚涂都是程序模拟，不是对真实颜料的完整物理复现。
 
-```json
-{ "width": 1600, "height": 1100 }
+---
+
+## Let your AI draw something for you
+
+Sometimes a picture is a better answer.
+
+Quiet Line gives the AI in DSH a canvas and a set of brushes. Tell it what you have in mind; it can plan the composition, choose its colours, lay down strokes and share the finished picture with you.
+
+A lake at dusk. A cat in a red scarf. A cup of tea by the window. You don't need to write coordinates or connect a separate image-generation service.
+
+**This isn't a wrapper around another image model.** The AI plans and uses the drawing tools; the plugin turns its strokes, washes and paint into an image. Different models and different approaches can leave very different marks.
+
+### Try asking
+
+> Use Quiet Line to paint a lake at sunset. Deep blue and muted purple clouds, a narrow band of warm light on the horizon, and a tree on the right. Keep the oil brushwork loose.
+
+> Draw a small cat wearing a red scarf, in pencil on warm paper. A little imperfect is fine.
+
+And once it's finished:
+
+> Keep this painting, but add a few sunset reflections on the water. Leave the sky alone.
+
+For wet oil pickup and mixing across calls, ask the AI to **save a wet-paint snapshot** and resume from it later. Think of leaving a painting on the easel rather than only keeping a photograph.
+
+### Pick a different feel
+
+Eight brushes cover ink, fountain pen, pencil, charcoal, brush, marker, oil and palette knife. Six surfaces range from warm drawing paper to woven linen and dark charcoal paper. Oil strokes can pick up earlier pigment, mix colours and build raised paint.
+
+For more deliberate marks, the tool also offers per-point pressure, width, opacity, rotation and tilt, plus hardness and flow. You don't need to learn the parameters to get started. See the [controls guide](CONTROL.md) when you want to go deeper; it includes JSON examples and implementation limits.
+
+### Install
+
+1. Download the `.tgz` package from [Releases](https://github.com/Lomond-PM/quiet-line-board/releases/latest).
+2. Add it through DSH's plugin manager and enable Quiet Line.
+3. Ask your AI to draw with Quiet Line.
+
+The plugin registers `quiet_line_draw`. Restart DSH after an upgrade if the active tool parameters are still cached. Images are saved under `quiet-line-out/` in the working directory; inline previews depend on DSH's attachment service and limits.
+
+The renderer does not call an external image-generation API. Normal usage of your chosen AI model may still incur model costs. Results depend on the model's composition and stroke planning, not just the brush settings.
+
+### A drawing toolkit, not a full editor
+
+Existing images support dry overpainting, not automatic recovery of their original wet paint or layers. Wet oil snapshots allow call-level continuation, rollback and branches, but there are no editable layers, masks or arbitrary per-stroke undo. Paint and paper behaviour are procedural approximations, not a complete physical simulation.
+
+---
+
+## 给想折腾画笔的人 / For the brush tinkerers
+
+![逐点压力、扁平刷角度、软硬边与流量测试 / Pressure, flat-tip angle, hardness and flow study](docs/controls.png)
+
+上至下：压力与转笔、固定角度扁平刷、由软到硬的边缘、由低到高的流量。
+
+Top to bottom: pressure with rotation, fixed-angle flat tips, soft-to-hard edges, and increasing flow.
+
+- [笔触控制与湿画快照 / Controls and wet snapshots](CONTROL.md)
+- [在已有图片上添画 / Dry image continuation](CONTINUATION.md)
+- [画笔、材质与引擎参考 / Brushes, surfaces and engine reference](docs/REFERENCE.md)
+- [厚涂说明 / Paint-volume notes](VOLUME.md)
+
+开发环境 / Development: Node.js 24+.
+
+```sh
+npm install
+npm test
+node examples/control-study.cjs
 ```
 
-## Built-in studies
+测试覆盖逐点参数、扁平刷接触形状、状态文件校验，以及一次完成与分步湿画输出一致性。未启用新字段的八种旧画笔回归样例已与 1.0.19 比较，PNG 字节一致。
 
-| subject | scene |
-| --- | --- |
-| `morning` | morning sun over a painted field |
-| `sprig` | large six-leaf cutting in a hatched terracotta pot |
-| `cup` | tea still life with saucer, spoon and steam |
-| `cat` | seated cat with a scarf, paws and a curling tail |
-| `house` | garden house with a washed roof, tree and a tiny cat |
-| `hills` | layered mountain washes, cabin and dark pines |
-
-## Tool parameters
-
-- `subject` — one of the six studies.
-- `brush` — `ink`, `fountain`, `pencil`, `charcoal`, `brush`, `marker`, `oil`, or `oilknife`; default `ink`.
-- `surface` — `warm`, `coldpress`, `kraft`, `linen`, `newsprint`, or `charcoal`; default `warm`.
-- `seed` — 1–9999, deterministic; the same seed redraws the same hand.
-- `size` — square shorthand, 320–1800; default 1200.
-- `width`, `height` — independent canvas dimensions, 320–1800 each; default to `size`.
-- `wobble`, `pressure`, `grain` — 0–100.
-- `wetness` — how much wet paint the filaments lift, mix and drag, 0–100; default 55.
-- `impasto` — relief of the paint film: ridge light, groove shadow and glints, 0–100; default 62.
-- `load` — paint carried at the start of a stroke, 0–100; low values run drier, narrower and more scumbled along the stroke. Default 65.
-- `weight` — basic ink weight; around 3 is confident.
-- `accent` — optional `#rrggbb` accent; by default the surface supplies its own ink and accent palette.
-- `title`, `output` — presentation title and optional output path inside the working directory.
-- `strokes`, `fills`, `dots` — custom marks in normalized 0..1 coordinates. Fills accept an optional `hatch` object.
-
-## Custom drawing
-
-```json
-{
-  "subject": "cup",
-  "brush": "fountain",
-  "surface": "coldpress",
-  "width": 1600,
-  "height": 1100,
-  "strokes": [
-    {
-      "points": [[0.18, 0.18], [0.5, 0.08], [0.78, 0.2]],
-      "color": "accent",
-      "width": 0.8
-    }
-  ],
-  "fills": [
-    {
-      "points": [[0.2, 0.7], [0.8, 0.7], [0.72, 0.9], [0.28, 0.9]],
-      "color": "sage",
-      "opacity": 0.2,
-      "hatch": { "gap": 0.03, "angle": 24, "opacity": 0.3 }
-    }
-  ],
-  "dots": [{ "x": 0.5, "y": 0.5, "r": 0.015, "color": "accent" }]
-}
-```
-
-Custom fills are drawn first, then strokes, then dots, after any built-in subject. Use either a built-in subject, custom marks, or both deliberately.
-
-## Behaviour and limits
-
-- Fresh canvases are opaque, 320–1800 px on each axis. base_image continuations preserve alpha and allow 1–1800 px. Wet snapshots preserve the original dimensions and base.
-- No network access is used.
-- The procedural rasterizer and PNG encoder use Node built-ins; base-image decoding uses sharp. Wet snapshots use bounded zlib-compressed typed arrays.
-- When the image service is unavailable or the PNG exceeds its attachment limit, the file remains on disk and the tool result explains why no preview was attached.
-- The tool writes only inside the current session working directory; absolute paths and `..` escapes are rejected.
-
-## Files
-
-- `index.js` — tool registration, argument handling and file/attachment output.
-- `lib/core.cjs` — shared Quiet Line geometry, brush library, surface palette, motifs, washes and hatching.
-- `lib/raster.cjs` — surface-aware paper generator, rasterizer and PNG encoder.
-- `examples/slow-morning.cjs` — a complete wide still life authored directly against the shared core; run `node examples/slow-morning.cjs 271 brush coldpress 1600 1100 1.7`.
-- `examples/oil-benchmark.cjs` — verifies that oil stroke cost stays flat as finished strokes accumulate.
-- `locale/` — plugin manager metadata.
-
-After editing, reinstall the bundle through plugin_manager and inspect its application result and live tool schema. If DSH reports a restart is required, restart before relying on new parameters. Historical version notes above describe earlier local verification evidence; those old workspace artifacts are not distributed in this repository.
+Tests cover point controls, flat-tip footprints, state-file validation, and matching single-call/split-call wet painting. Legacy regression samples across all eight brushes match 1.0.19 PNG bytes when new fields are absent.

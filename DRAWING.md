@@ -94,7 +94,7 @@ Wet overlap picks up and mixes pigment: use it to connect related colours, but a
 
 **中文**
 
-可参考：构图与透视 → 轻线起型／单色底稿 → 明暗与投影的大关系 → 大色块、冷暖与色彩结构 → 转面、边缘、材质与少量重点细节。油画可以先用炭笔起型，或以低不透明度、低 `load`、较薄的笔触近似稀释油彩，再铺更实的色面与局部厚涂。这是视觉上的薄涂近似，没有溶剂或化学稀释模拟。
+可参考：构图与透视 → 轻线起型／单色底稿 → 明暗与投影的大关系 → 大色块、冷暖与色彩结构 → 转面、边缘、材质与少量重点细节。油画可以先用炭笔起型，或以低不透明度、低 `load`、较薄的笔触近似稀释油彩，再铺更实的色面与局部厚涂。这是视觉上的薄涂近似，没有溶剂或化学稀释模拟。低 `load` 会提前耗尽颜料；需要连续薄涂时保留足够负载，主要降低 `opacity`／`impasto`，不要把低负载等同于均匀稀释。
 
 流程只是脚手架：可合并、跳过、调整顺序、回头改构图，也可直接画法或使用更适合题材的方法。不是每张图都必须有底稿、必须分六轮，或必须先完成一张素描。不要把遵守工序当作画面已经成立。
 
@@ -102,7 +102,7 @@ Wet overlap picks up and mixes pigment: use it to connect related colours, but a
 
 **English**
 
-One useful scaffold is composition/perspective → light construction or tonal underpainting → broad light/shadow masses → large colour planes and warm/cool structure → form, edges, materials and selective accents. Oils may start from charcoal construction or low-opacity, low-`load`, thin paint approximating a diluted block-in, then fuller colour and selective impasto. This is visual dilution, not solvent chemistry.
+One useful scaffold is composition/perspective → light construction or tonal underpainting → broad light/shadow masses → large colour planes and warm/cool structure → form, edges, materials and selective accents. Oils may start from charcoal construction or low-opacity, low-`load`, thin paint approximating a diluted block-in, then fuller colour and selective impasto. This is visual dilution, not solvent chemistry. Low `load` can run dry early; for continuous thin passages retain enough paint and mainly lower opacity/impasto instead of treating low load as uniform dilution.
 
 Combine, skip, reorder or revisit stages; direct painting or another method may suit the subject better. Neither a separate drawing nor six tool calls is compulsory. Ritual completion is not visual success.
 

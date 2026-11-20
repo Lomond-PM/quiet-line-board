@@ -15,6 +15,9 @@ const CORE = require('./lib/core.cjs');
 const RASTER = require('./lib/raster.cjs');
 const { loadBaseImage, writeDrawing } = require('./lib/base-image.cjs');
 const { loadPaintState, savePaintState } = require('./lib/paint-state.cjs');
+const DRY_TOOL = require('./lib/dry-tool.cjs');
+const PROJECT_TOOL = require('./lib/project-tool.cjs');
+const { ART_GUIDANCE } = require('./lib/art-guidance.cjs');
 
 export const name = 'quiet-line-board';
 export const inject = ['tools', 'workingDirectory'];
@@ -66,7 +69,9 @@ const STROKE_SCHEMA = {
       description: 'Ordered points of the line. Two points make a straight stroke; more make a hand-drawn curve.'
     },
     color: { type: 'string', description: 'ink, accent, clay, ochre, sage, or a #rrggbb value. Default ink.' },
-    width: { type: 'number', description: 'Stroke width multiplier, 0.1–3. Default 1.' },
+    width: { type: 'number', description: 'Stroke width multiplier, 0.1–3 (0.1–30 in dry_media). Default 1.' },
+    pressure: { type: 'number', minimum: 0, maximum: 1, description: 'Dry-media shorthand only: contact pressure affecting density, default 0.5. Requires dry_media:true; not the global pressure-variation setting.' },
+    grade: { type: 'string', enum: ['H', 'HB', '2B', '4B', '6B', '8B'], description: 'Dry-media shorthand only: material softness, default 2B. Requires dry_media:true.' },
     opacity: { type: 'number', description: '0–1. Default 0.95.' },
     controls: {
       type: 'array', description: 'One object per points entry (same length). Smoothly interpolated along the stroke; pressure=0 explicitly lifts the brush. Omitted fields inherit stroke defaults.',
@@ -78,7 +83,7 @@ const STROKE_SCHEMA = {
         tilt: { type: 'number', minimum: 0, maximum: 1 }
       } }
     },
-    tip: { type: 'string', enum: ['round', 'flat'], description: 'Oil footprint; flat enables a rotatable elliptical flat brush.' },
+    tip: { type: 'string', enum: ['round', 'flat'], description: 'Oil or dry-media footprint; flat enables directional elliptical contact.' },
     aspect: { type: 'number', minimum: 0.05, maximum: 1, description: 'Flat tip minor/major ratio; default 0.3.' },
     angle: { type: 'number', minimum: -360, maximum: 360, description: 'Oil flat-tip major-axis angle in canvas degrees (0=right); default 0. Use controls.angle to rotate along the gesture.' },
     tilt: { type: 'number', minimum: 0, maximum: 1, description: 'Oil contact tilt: 0 upright, 1 on its side.' },
@@ -186,6 +191,7 @@ function pointsOf(value, label, min) {
 function normalizeStroke(raw, i) {
   const label = `strokes[${i}]`;
   if (!raw || typeof raw !== 'object') fail(`${label} must be an object`);
+  if (raw.grade != null || raw.pressure != null) fail(`${label}.grade/pressure require dry_media:true; use controls for legacy per-point pressure`);
   const points = pointsOf(raw.points, `${label}.points`, 2);
   const extra = {};
   for (const [key, min, max] of [['angle', -360, 360], ['tilt', 0, 1], ['hardness', 0, 1], ['flow', 0, 1], ['aspect', 0.05, 1]]) {
@@ -323,7 +329,21 @@ function renderValue(value) {
     `Drew “${value.title}” ${value.baseImage ? 'over an existing image' : `on ${SURFACE_LABELS[value.surface] || value.surface}`} with a ${BRUSH_LABELS[value.brush] || value.brush} at ${value.width}×${value.height}, seed ${value.seed}, ${value.marks} new marks.`,
     `File: ${value.path}`
   ];
+  if (value.project) {
+    lines.push(`Project: ${value.project} — ${value.projectMode} step ${value.projectStep}, revision ${value.projectRevision}. Editable material state and this PNG are auto-saved in the single project file.`);
+    lines.push('Continue with project set to this same file. Use quiet_line_project to list history, restore, checkpoint, branch or export; no loose state snapshots are needed.');
+    if (value.note) lines.push(value.note);
+    return lines.join('\n');
+  }
   if (value.baseImage) lines.push(`Continued over: ${value.baseImage}. Existing image is a flattened dry layer.${value.resizedBase ? ' Base image was resized to the output dimensions.' : ''}`);
+  if (value.dryMedia) {
+    lines.push('Material-aware dry media: operations were applied in order. Erasing and smudging affect new material only, never the flattened base image.');
+    if (value.resumedDryState) lines.push(`Resumed dry materials: ${value.resumedDryState}`);
+    if (value.dryState) lines.push(`Dry state: ${value.dryState}. Continue with dry_state set to this file to retain removable pigment and substrate; use save_dry_state to save the next stage.`);
+    else lines.push('To keep material editable across calls, request save_dry_state while drawing. This PNG alone cannot recover removable pigment.');
+    if (value.note) lines.push(value.note);
+    return lines.join('\n');
+  }
   if (value.resumedState) lines.push(`Resumed wet paint: ${value.resumedState}`);
   if (value.paintState) lines.push(`Wet state: ${value.paintState}. Continue with paint_state set to this file, not base_image, to retain wet pickup and thickness.`);
   else lines.push(`For a drawing revision, use base_image set to this result's path for dry overpainting. To preserve wet oil across future calls, request save_state while drawing. Do not switch to external image processing unless requested or necessary.`);
@@ -332,7 +352,7 @@ function renderValue(value) {
 }
 
 export function apply(ctx) {
-  ctx.tools.register({
+  const drawingTool = {
     name: 'quiet_line_draw',
     description:
       'Draw a Quiet Line hand-drawn illustration on a chosen surface and attach it to the result. ' +
@@ -344,11 +364,14 @@ export function apply(ctx) {
       'For drawing revisions, normally use this tool on the previous image and show the painted result, rather than ' +
       'switching to generic image-processing scripts merely because an image already exists. Use other editing tools ' +
       'when the user explicitly requests image processing (such as crop/filter/colour adjustment) or this tool cannot perform the change. ' +
-      'Existing image pixels are a flattened dry layer. For cross-call wet oil pickup and height, save_state to a new .qlpaint file, then resume with paint_state (not base_image). Stroke controls enable per-point pressure/width/opacity/angle/tilt and oil tip/hardness/flow. State snapshots also allow branching from an earlier call; editable layers, masks and arbitrary per-stroke undo are not provided.',
+      'Prefer project (.qlproject) for continued wet oil or dry-material work: one engineering file auto-saves editable state, PNG history and optional named checkpoints without loose snapshots. Continue with the same project; use quiet_line_project for history, restore, branch and export. Existing image pixels are a flattened dry layer. Legacy snapshots remain supported: save_state to a new .qlpaint file, then resume with paint_state (not base_image). Stroke controls enable per-point pressure/width/opacity/angle/tilt and oil tip/hardness/flow. State snapshots also allow branching from an earlier call; editable layers, masks and arbitrary per-stroke undo are not provided. ' +
+      'For material-aware graphite/charcoal, use dry_media with ordered operations: pencil, charcoal, eraser, kneaded and smudge. Save .qldry with save_dry_state, resume via dry_state; this is independent of wet oil state. ' + ART_GUIDANCE,
     parameters: {
       type: 'object',
       additionalProperties: false,
       properties: {
+        ...PROJECT_TOOL.parameters,
+        ...DRY_TOOL.parameters,
         paint_state: { type: 'string', description: 'Resume a local .qlpaint wet oil snapshot. Inherits fixed brush, surface, seed, grain and dimensions; omit those options. Mutually exclusive with base_image and subject. Restores pigment/height/wetness, not flattened PNG pixels.' },
         save_state: { type: 'string', description: 'Optional NEW .qlpaint path within working directory. Oil/oilknife only. Saves wet state for another call; never overwrites existing files. Saving is opt-in and has canvas-sized I/O cost. Keep previous snapshots for call-level rollback/branching.' },
         base_image: {
@@ -461,8 +484,15 @@ export function apply(ctx) {
           marks: { type: 'integer' },
           baseImage: { type: 'string' },
           resizedBase: { type: 'boolean' },
+          dryMedia: { type: 'boolean' },
+          dryState: { type: 'string' },
+          resumedDryState: { type: 'string' },
           paintState: { type: 'string' },
           resumedState: { type: 'string' },
+          project: { type: 'string' },
+          projectStep: { type: 'integer' },
+          projectRevision: { type: 'integer' },
+          projectMode: { type: 'string', enum: ['wet', 'dry'] },
           image: IMAGE_SCHEMA,
           note: { type: 'string' }
         },
@@ -478,6 +508,12 @@ export function apply(ctx) {
     isConcurrencySafe: () => false,
     async execute(args, exec) {
       if (!exec.agent) fail('quiet_line_draw needs an owning Agent session');
+      if (args.project != null) return PROJECT_TOOL.executeProject(args, exec, { ctx, execute: (raw, run) => drawingTool.execute(raw, run) });
+      PROJECT_TOOL.checkWithoutProject(args);
+      if (args.dry_media != null && typeof args.dry_media !== 'boolean') fail('dry_media must be boolean');
+      if (args.dry_media || args.operations != null || args.dry_state != null || args.save_dry_state != null) {
+        return DRY_TOOL.executeDry(args, exec, {ctx, fail, numberIn, integerIn, color, pointsOf, loadBaseImage, writeDrawing, outputPath, attachImage, path, CORE});
+      }
       const cwd = await ctx.workingDirectory.ensure(exec.agent, exec.signal);
       if (!cwd) fail('the session working directory is unavailable');
 
@@ -594,9 +630,11 @@ export function apply(ctx) {
       };
     },
     presentCall(args) {
-      const subject = args && args.subject ? args.subject : (args && (args.base_image || args.paint_state || args.strokes || args.fills || args.dots) ? 'custom' : 'morning');
+      const subject = args && args.subject ? args.subject : (args && (args.base_image || args.paint_state || args.dry_state || args.operations || args.dry_media || args.strokes || args.fills || args.dots) ? 'custom' : 'morning');
       const brush = args && args.brush ? ` · ${args.brush}` : '';
-      return { card: 'generic', title: `${args && (args.base_image || args.paint_state) ? 'Continue' : 'Draw'} ${subject}${brush}`, kind: 'other' };
+      return { card: 'generic', title: `${args && (args.base_image || args.paint_state || args.dry_state) ? 'Continue' : 'Draw'} ${subject}${brush}`, kind: 'other' };
     }
-  });
+  };
+  ctx.tools.register(drawingTool);
+  ctx.tools.register(PROJECT_TOOL.createProjectTool(ctx));
 }

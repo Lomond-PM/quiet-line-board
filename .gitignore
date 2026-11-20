@@ -2,5 +2,11 @@ node_modules/
 *.tgz
 quiet-line-out/
 *.qlpaint
+*.qldry
+*.qlproject
+*.qlproject-journal
+*.qlproject-wal
+*.qlproject-shm
+.quiet-line-project-*/
 .DS_Store
 Thumbs.db

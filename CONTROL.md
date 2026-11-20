@@ -2,6 +2,10 @@
 
 本轮优先完成四项：逐点控制、旋转扁平刷、边缘与流量、跨调用湿画状态。旧参数仍有效；不提供完整绘画编辑器。
 
+需要反复续画但不想散落许多快照时，优先使用新的[单文件工程](PROJECTS.md)：自动历史、命名检查点、回退、分支和导出。本文的独立 `.qlpaint` 方式保持兼容。
+
+For iterative work without scattered snapshots, prefer [single-file projects](PROJECTS.md). Standalone `.qlpaint` snapshots below remain supported.
+
 ## 逐点控制
 
 每条 stroke 的 `controls` 与 `points` 一一对应，各对象字段均可省略：

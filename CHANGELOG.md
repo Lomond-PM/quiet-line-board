@@ -1,5 +1,47 @@
 # Changelog / 更新记录
 
+## 1.3.0 — 2026-11-20
+
+### 中文
+
+- **单文件绘画工程**：`quiet_line_draw` 提供 `project`，把湿油画或新干性材料的过程状态、PNG 预览和检查点存入一个 `.qlproject`，不再为每轮绘画堆积独立快照。
+- **自动历史与检查点**：默认最近 30 步未命名历史，另可保留最多 64 个命名检查点；默认 2048 MiB 容量，可调整历史数量与容量。自动清理不删除当前步骤或命名检查点，容量不足则安全失败。
+- **工程管理工具**：新增 `quiet_line_project`，支持查询、检查点、恢复、取消检查点、清理、另存分支及导出 PNG／独立材料状态。恢复后可以继续生成新分支，不立即丢弃后续历史。
+- **兼容旧状态**：新工程可导入 `.qlpaint` 或 `.qldry`，不改动源文件。现有不使用工程的绘画参数继续有效。
+- **事务与修订保护**：SQLite 单文件事务、防路径逃逸与排他新文件输出，检查修订以拒绝并发覆盖。工程不是无限空间或任意单笔撤销，详见[工程指南](PROJECTS.md)。
+
+### English
+
+- **Single-file drawing projects:** `quiet_line_draw` accepts `project` to keep wet-oil or dry-material states, PNG previews and checkpoints in one `.qlproject`, instead of scattering snapshots for every call.
+- **History and checkpoints:** retain 30 unpinned automatic steps plus up to 64 named checkpoints by default. Logical capacity defaults to 2048 MiB. Limits are configurable; automatic pruning never drops the head or named checkpoints and fails safely when capacity cannot be met.
+- **Project management:** new `quiet_line_project` lists history, pins/unpins checkpoints, restores, prunes, branches and exports PNGs or standalone material snapshots. Restore preserves later history until normal retention applies.
+- **Old snapshots still work:** import `.qlpaint` / `.qldry` into new projects without modifying sources. Non-project drawing calls remain supported.
+- **Transactions and revisions:** SQLite transactions, path containment, exclusive outputs and revision checks protect against failed or concurrent commits. Projects are not unlimited storage or per-stroke undo. See the [project guide](PROJECTS.md).
+
+## 1.2.0 — 2026-11-20
+
+### 中文
+
+- **独立干性材料模式**：显式开启 `dry_media:true`，通过有序 `operations` 在一次调用中切换石墨、炭条、普通橡皮、可塑橡皮和方向性擦揉。也提供 `brush:pencil/charcoal` + `strokes` 绘画简写；两种输入不能同用。
+- **材料与接触控制**：支持压力相关沉积、纸齿覆盖、H 至 8B 等级、倾斜／定向侧锋、受限叠加，以及附着与松散材料的区别。普通橡皮移除材料，可塑橡皮偏向提走浮粉；纸擦笔沿路径搬运松散部分，不是整图模糊。
+- **独立 `.qldry` 状态**：`save_dry_state` 显式保存，`dry_state` 继续；与油画 `.qlpaint` 不互通。保存原始底图与材料状态，不把预览 PNG 烘焙后重新当材料叠加；新文件保存、有界校验，父目录须已存在。
+- **兼容边界**：未启用新模式时，旧笔触与湿油画流程保持原有路径。`base_image` 中的旧像素是受保护底图，擦除与擦揉只影响新干性材料，不能反推原图的纸与炭粉。
+- **内置绘画指导**：紧凑的英文指导用于工具描述，覆盖构图、负形、光源、明暗、体积、边缘、排线、侧锋、橡皮／擦揉与油画。鼓励观察输出后继续有目的地修正，不因担心 overworking 过早停笔，同时遵守用户轮数、时间和费用限制，不无限加笔。
+- 新增双语[绘画方法与练习](DRAWING.md)及[干性材料指南](DRY-MEDIA.md)，包括字段、顺序操作、状态续画、练习与实现边界。
+
+这是艺术用途的程序材料模型，不是完整物理模拟，也不新增可编辑图层、独立蒙版、任意单笔撤销或自动曲面排线。
+
+### English
+
+- **Opt-in dry materials:** `dry_media:true` with ordered `operations` switches among graphite, charcoal, regular eraser, kneaded eraser and directional smudge within one call. A `brush:pencil/charcoal` + `strokes` shorthand is also available; do not combine the two forms.
+- **Material and contact controls:** pressure-dependent deposition, paper-tooth coverage, H through 8B grades, oriented/tilted side contact, bounded accumulation and separate bound/loose material. Erasers remove material, kneaded erasers favor lifting loose powder, and smudge transports the loose component along a path rather than blurring the whole image.
+- **Separate `.qldry` snapshots:** explicitly save with `save_dry_state` and continue with `dry_state`; not interchangeable with oil `.qlpaint`. Substrate and material state are retained without baking the preview PNG back into the simulation. Saves are new-file-only with bounded validation; parent directories must already exist.
+- **Compatibility boundary:** without the opt-in, legacy strokes and wet oils keep their existing paths. Old pixels in a `base_image` are protected substrate. Erasing and smudging affect new dry material, not an inferred decomposition of the source image.
+- **Built-in art guidance:** concise English guidance for the tool description covers composition, negative space, light, values, volume, edges, hatching, side contact, erasing/smudging and oils. It encourages inspecting and purposefully revising outputs instead of stopping prematurely from fear of overworking, while respecting user pass/time/cost limits and never adding marks indefinitely.
+- Added bilingual [drawing methods and exercises](DRAWING.md) and [dry-media documentation](DRY-MEDIA.md), covering fields, operation order, saved-state continuation, practice and limitations.
+
+This is a procedural artistic material model, not complete physics. It does not add editable layers, independent masks, arbitrary per-stroke undo or automatic surface-following hatching.
+
 ## 1.1.1 — 2026-11-20
 
 ### 中文

@@ -12,7 +12,7 @@ const { loadBaseImage } = require('../lib/base-image.cjs');
 const { loadPaintState } = require('../lib/paint-state.cjs');
 let tool;
 const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'quiet-line-integration-'));
-apply({ tools: {register(t){tool=t;}}, workingDirectory: {ensure: async()=>cwd}, get(){return undefined;} });
+apply({ tools: {register(t){if(t.name==='quiet_line_draw')tool=t;}}, workingDirectory: {ensure: async()=>cwd}, get(){return undefined;} });
 const run = args=>tool.execute(args, {agent:{id:'test'}});
 const a = {points:[[.15,.45],[.5,.46],[.85,.4]],color:'#ae3829',width:3,tip:'flat',angle:10,flow:.8,controls:[{pressure:0},{pressure:1},{pressure:0}]};
 const b = {points:[[.5,.15],[.48,.5],[.52,.85]],color:'#23578a',width:3,tip:'flat',angle:75,hardness:.35};

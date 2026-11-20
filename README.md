@@ -50,6 +50,10 @@ Quiet Line 给 DSH 里的 AI 一张画布和一套画笔。你说想画什么，
 
 想控制得更细，也能告诉它哪里按重一点、哪里提笔，如何转动油画扁平刷，以及颜料要湿一些还是干一些。一般使用不需要记住这些参数；需要时再看[笔触与湿画指南](CONTROL.md)。
 
+## 1.4.1：让油彩先干化，再继续画
+
+在湿油画工程中可以让 AI 显式“干化当前油彩”，不必等现实时间。画面、颜色和厚度保持不变，之后添画不再从已干油彩拾色。干化会新增一个工程步骤，并遵循工程历史的正常清理规则；想确保能回到干化前的湿状态，请先设命名检查点或另存分支。它不同于切换到石墨／炭笔材料。旧工程可在新版读取；旧版插件不能保证正确解释新版干化标记，降级前请备份。详见[工程指南](PROJECTS.md)。
+
 ## 1.4.0：材料可以换，画面结构要立住
 
 同一个工程现在可以先用炭笔起型，再薄涂油彩，之后用干性材料加线。显式切换材料时，上阶段画面固定为底图，旧可编辑状态保留在历史里；同材料续画不固化。**不模拟干湿物理混合，也不是可编辑图层。** 详见[工程指南](PROJECTS.md)。
@@ -93,6 +97,10 @@ Quiet Line 是给 AI 使用的轻量画具，不是 Photoshop，也不是完整�
 - 笔触、纸齿和厚涂都是程序模拟，不是对真实颜料的完整物理复现。
 
 ---
+
+## Dry oil before continuing
+
+In a wet oil project, ask the AI to dry the current oil paint explicitly before the next layer. This preserves the visible picture, colour and relief, and prevents pickup from dried paint. It records a new project step, subject to normal retention: pin a checkpoint or branch first if the wet state must remain recoverable. This is not a switch to graphite or charcoal. New versions can read old projects, but older engines may not interpret the new dry marker correctly; back up before downgrading. See [projects](PROJECTS.md).
 
 ## Let your AI draw something for you
 

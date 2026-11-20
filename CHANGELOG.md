@@ -1,5 +1,13 @@
 # Changelog / 更新记录
 
+## 1.4.1 — 2026-11-20
+
+- 修复湿油彩年龄循环导致旧颜料返湿、油画拾色及不透明度等问题；保留受控油刷既有默认笔形，避免无关的风格变化。
+- 新增湿油画工程 `quiet_line_project` 的 `dry_paint`：显式干化当前颜料，保存新步骤且不改 PNG、颜色和厚度。历史按既有规则裁剪，干化前可先设检查点或备份。不是干性材料切换，也不模拟真实时间干燥。
+- 新引擎读取旧工程／快照；旧引擎不理解新干化标记，降级前需备份。旧版本曾发生的年龄循环混淆无法追溯还原。
+
+- Fix oil paint age wrapping, unintended pigment pickup and opacity handling. Explicit `dry_paint` records a new wet-project step with the same PNG, colour and relief but no wet pickup from dried pigment. Pin or branch first if the previous wet state must be preserved under normal retention. No real-time drying or dry-medium switch is simulated. Old state is readable; old engines do not understand the new dry marker, and previously lost age history cannot be recovered.
+
 ## 1.4.0 — 2026-11-20
 
 ### 中文

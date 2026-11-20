@@ -56,6 +56,20 @@ Defaults retain the **30 most recent unpinned automatic steps**, configurable fr
 }
 ```
 
+## 让油彩干化 / Dry oil paint explicitly
+
+在湿油画工程中，可以调用 `quiet_line_project`：
+
+```json
+{"project":"still-life.qlproject","action":"dry_paint"}
+```
+
+这会把当前油彩标记为已干并另存为新的工程步骤，原有 PNG、颜料颜色与厚度不变；继续用油画笔时不会从这层已干颜料拾色。无需等待现实时间。这不是切换到 `project_material:"dry"`：后者是石墨／炭笔阶段，并会将画面固定为底图。干化只作用于当前湿油画 head，不支持选取历史步；如需先回到历史，请先 restore。正常历史清理规则仍然适用：若需要保证可以恢复干化前的湿状态，应在干化前给该步骤建立命名检查点或先分支备份。
+
+旧 `.qlpaint` 可先导入一个新湿工程，再干化；原快照不会修改。新版可读取旧工程和快照，但旧版本可能无法正确解释新版干化后的湿度标记，因此降级前请备份并保留原工程。旧版本若已发生笔画年龄循环混淆，无法推断真实历史；新版本无法复原此前已经丢失的信息。
+
+In a wet oil project, `quiet_line_project` action `dry_paint` saves the current oil as a new dry-paint step without changing its PNG, pigment colour or relief. No real-time waiting is simulated. This is not `project_material:"dry"`, which switches to graphite/charcoal and fixes the image as a base. Only the current wet head can be dried. Normal retention applies: pin a checkpoint or branch before drying if the wet state must remain recoverable. Old `.qlpaint` snapshots can be imported into a new wet project first without modifying the source. The new engine reads old state, but older versions may not interpret the new dry marker correctly; back up before downgrading. Previously lost age information after a legacy wrap cannot be reconstructed.
+
 ## 开始干性材料工程 / Start a dry project
 
 ```json

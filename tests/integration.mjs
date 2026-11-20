@@ -7,6 +7,9 @@ import { apply } from '../index.js';
 const require = createRequire(import.meta.url);
 const CORE = require('../lib/core.cjs');
 const RASTER = require('../lib/raster.cjs');
+const sharp = require('sharp');
+const { loadBaseImage } = require('../lib/base-image.cjs');
+const { loadPaintState } = require('../lib/paint-state.cjs');
 let tool;
 const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'quiet-line-integration-'));
 apply({ tools: {register(t){tool=t;}}, workingDirectory: {ensure: async()=>cwd}, get(){return undefined;} });
@@ -31,6 +34,52 @@ for (const args of [
  {brush:'ink',strokes:[a],save_state:'bad.qlpaint'}
 ]) await assert.rejects(()=>run(args));
 await assert.rejects(()=>run({...opts,strokes:[a],output:'occupied.png',save_state:'first.qlpaint'}),/EEXIST/);
+// Real decoder -> tool -> snapshot -> resume coverage. Synthetic Uint8Array
+// bases alone missed sharp's Buffer subclass in the original 1.1.0 tests.
+const pixels = Buffer.alloc(96 * 64 * 4);
+for (let y = 0; y < 64; y++) for (let x = 0; x < 96; x++) {
+ const i = (y * 96 + x) * 4;
+ pixels.set([x * 2, y * 3, 160, x < 24 ? 0 : x < 48 ? 128 : 255], i);
+}
+for (const format of ['png', 'jpeg', 'webp']) {
+ const source = path.join(cwd, `base.${format}`);
+ const encoder = sharp(pixels, {raw:{width:96,height:64,channels:4}});
+ await (format === 'webp' ? encoder.webp({lossless:true}) : encoder[format]()).toFile(source);
+ const original = fs.readFileSync(source);
+ for (const brush of ['oil', 'oilknife']) {
+  const prefix = `${format}-${brush}`;
+  const { size, ...style } = opts;
+  // Also cover aspect-preserving resize and inherited non-square dimensions.
+  const dimensions = brush === 'oilknife' ? {width:72} : {};
+  const baseArgs = {...style,...dimensions,brush,base_image:source};
+  const bootstrap = await run({...baseArgs,output:`${prefix}-bootstrap.png`,save_state:`${prefix}-bootstrap.qlpaint`});
+  const decoded = await loadBaseImage(cwd, source, dimensions);
+  assert.equal(decoded.rgba.constructor, Uint8Array, 'decoder returns canonical owned RGBA, not a Buffer');
+  assert.equal(Buffer.isBuffer(decoded.rgba),false);
+  assert.equal(decoded.rgba.length,decoded.width * decoded.height * 4);
+  const expected = await sharp(original).rotate().resize(decoded.width,decoded.height,{fit:'fill'})
+   .toColourspace('srgb').ensureAlpha().raw().toBuffer();
+  assert.deepEqual(Buffer.from(decoded.rgba),expected,'RGBA normalization preserves decoded bytes');
+  const state = loadPaintState(cwd,bootstrap.paintState);
+  assert.equal(state.baseRGBA.constructor,Uint8Array);
+  assert.equal(state.paper,null,'base-backed state must not add a paper layer');
+  assert.deepEqual(state.baseRGBA,decoded.rgba,'saved base retains RGBA bytes, including alpha');
+  assert.equal(state.metadata.width,decoded.width);
+  assert.equal(state.metadata.height,decoded.height);
+  const plain = await run({...baseArgs,output:`${prefix}-plain.png`});
+  assert.deepEqual(fs.readFileSync(bootstrap.absolutePath),fs.readFileSync(plain.absolutePath),'capture does not alter dry overpainting output');
+  const bootstrapPixels = await sharp(bootstrap.absolutePath).ensureAlpha().raw().toBuffer();
+  assert.deepEqual(bootstrapPixels,expected,'empty bootstrap preserves pixels and transparency');
+  const marked = await run({...baseArgs,strokes:[a],output:`${prefix}-marked.png`,save_state:`${prefix}-marked.qlpaint`});
+  const resumed = await run({paint_state:marked.paintState,strokes:[b],output:`${prefix}-resumed.png`,save_state:`${prefix}-resumed.qlpaint`});
+  const whole = await run({...baseArgs,strokes:[a,b],output:`${prefix}-whole.png`});
+  assert.deepEqual(fs.readFileSync(resumed.absolutePath),fs.readFileSync(whole.absolutePath),`${prefix}: real-image split wet painting matches single call`);
+  const emptyBase = await run({paint_state:resumed.paintState,output:`${prefix}-empty.png`});
+  assert.deepEqual(fs.readFileSync(emptyBase.absolutePath),fs.readFileSync(resumed.absolutePath),'empty real-image resume is stable');
+  assert.deepEqual(fs.readFileSync(source),original,'source image is never modified');
+ }
+}
+console.log('base-image state: PASS — real PNG/JPEG/WebP, oil/oilknife, empty bootstrap, resize, RGBA and split equality');
 // Legacy rendering against the actual previously installed 1.0.19, when available.
 const previous = process.env.QUIET_LINE_BASELINE;
 if(previous){

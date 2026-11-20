@@ -1,6 +1,6 @@
 {
   "name": "@dsh-local/quiet-line-board",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "repository": { "type": "git", "url": "https://github.com/Lomond-PM/quiet-line-board.git" },
   "scripts": { "test": "node tests/controls.cjs && node tests/state.cjs && node tests/integration.mjs" },
@@ -21,6 +21,7 @@
     "tests/*.cjs",
     "tests/*.mjs",
     "CONTROL.md",
+    "CHANGELOG.md",
     "docs/*.png",
     "docs/*.md",
     "examples/*.cjs",

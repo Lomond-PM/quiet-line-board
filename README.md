@@ -126,6 +126,7 @@ Top to bottom: pressure with rotation, fixed-angle flat tips, soft-to-hard edges
 - [在已有图片上添画 / Dry image continuation](CONTINUATION.md)
 - [画笔、材质与引擎参考 / Brushes, surfaces and engine reference](docs/REFERENCE.md)
 - [厚涂说明 / Paint-volume notes](VOLUME.md)
+- [更新记录 / Changelog](CHANGELOG.md)
 
 开发环境 / Development: Node.js 24+.
 

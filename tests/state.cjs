@@ -110,6 +110,11 @@ try {
   assert.throws(() => savePaintState(cwd, 'nan.qlpaint', invalid), /Invalid paint state/);
   const invalid2 = clonePaintState(snapshot); invalid2.ink = new Uint8ClampedArray(snapshot.ink);
   assert.throws(() => savePaintState(cwd, 'wrongtype.qlpaint', invalid2), /type/);
+  const bufferBase = clonePaintState(snapshot);
+  bufferBase.paper = null;
+  bufferBase.baseRGBA = Buffer.alloc(snapshot.metadata.width * snapshot.metadata.height * 4);
+  assert.throws(() => savePaintState(cwd, 'buffer-base.qlpaint', bufferBase), /baseRGBA type\/length/,
+    'snapshot validation must still reject Buffer subclasses; normalize trusted decoder output instead');
   console.log('state: PASS — oil/oilknife split/single byte equality, paper/RGBA, flush ordering, exclusive safe roundtrip, strict corruption/size/type checks');
 } finally {
   // This directory is a fresh child of this test's own directory, never user data.

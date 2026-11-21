@@ -3,11 +3,13 @@
 ### 让你的 DSH 可以画画。
 ### Give your DSH a paintbrush.
 
-![Mimo 2.6 Flash 使用 Quiet Line 绘制的湖畔暮色 / A lakeside sunset drawn by Mimo 2.6 Flash with Quiet Line](docs/cover.png)
+| 石巷留光 | 岬角夜潮 | 石榴与旧铜壶 |
+| :---: | :---: | :---: |
+| <a href="docs/stone-passage.png"><img src="docs/stone-passage.png" width="180" alt="石巷留光 · The Stone Passage"></a> | <a href="docs/night-tide.png"><img src="docs/night-tide.png" width="324" alt="岬角夜潮 · Night Tide"></a> | <a href="docs/ruby-and-copper.png"><img src="docs/ruby-and-copper.png" width="193" alt="石榴与旧铜壶 · Ruby and Copper"></a> |
 
-*封面由 **Mimo 2.6 Flash** 使用本插件绘制，由用户提供。*
+*以上三幅作品均由 Codex 中的 **6.2 Astra Max** 使用 Quiet Line 绘制。*
 
-*Cover artwork drawn by **Mimo 2.6 Flash** using this plugin, shared by the user.*
+*All three paintings were drawn in Codex by **6.2 Astra Max** using Quiet Line.*
 
 [中文](#不只是回答也能画给你看) · [English](#let-your-ai-draw-something-for-you) · [下载安装 / Download](https://github.com/Lomond-PM/quiet-line-board/releases/latest) · [进阶用法 / Brush controls](CONTROL.md)
 
